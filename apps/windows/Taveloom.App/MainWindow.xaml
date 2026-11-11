@@ -1,0 +1,56 @@
+<Window x:Class="Taveloom.App.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:Taveloom.App.ViewModels"
+        xmlns:views="clr-namespace:Taveloom.App.Views"
+        Title="Taveloom" Width="1240" Height="800" MinWidth="980" MinHeight="640"
+        Background="{DynamicResource Bg}" FontFamily="{StaticResource UiFont}" WindowStartupLocation="CenterScreen"
+        Icon="Assets/taveloom.png" UseLayoutRounding="True" TextOptions.TextFormattingMode="Ideal">
+    <Window.Resources>
+        <DataTemplate DataType="{x:Type vm:DashboardViewModel}"><views:DashboardView/></DataTemplate>
+        <DataTemplate DataType="{x:Type vm:DevicesViewModel}"><views:DevicesView/></DataTemplate>
+        <DataTemplate DataType="{x:Type vm:StudioViewModel}"><views:StudioView/></DataTemplate>
+        <DataTemplate DataType="{x:Type vm:SettingsViewModel}"><views:SettingsView/></DataTemplate>
+    </Window.Resources>
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="232"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Border}" BorderThickness="0,0,1,0" Padding="14,20">
+            <DockPanel>
+                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="8,0,0,24">
+                    <Image Source="Assets/taveloom.png" Width="30" Height="30"/>
+                    <StackPanel Margin="10,0,0,0" VerticalAlignment="Center" MaxWidth="150">
+                        <TextBlock Text="Taveloom" FontSize="17" FontWeight="SemiBold"/>
+                        <TextBlock Text="Your workspace, at your fingertips." Style="{StaticResource Muted}" FontSize="10.5" TextWrapping="Wrap"/>
+                    </StackPanel>
+                </StackPanel>
+                <StackPanel DockPanel.Dock="Bottom" Margin="8,0,0,0">
+                    <StackPanel Orientation="Horizontal">
+                        <Ellipse Width="8" Height="8" Fill="{Binding Dashboard.HostStatusKind, Converter={StaticResource StatusBrush}}" VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding Dashboard.DeviceSummary}" Style="{StaticResource Muted}" Margin="8,0,0,0" FontSize="12"/>
+                    </StackPanel>
+                    <TextBlock Text="{Binding Settings.Version, StringFormat=v{0}  ·  EFEDEV}" Style="{StaticResource Muted}" FontSize="11" Margin="0,6,0,0"/>
+                </StackPanel>
+                <StackPanel>
+                    <RadioButton Style="{StaticResource NavItem}" Tag="&#xE80F;" Content="Dashboard" GroupName="nav"
+                                 IsChecked="{Binding Page, Mode=OneWay, Converter={StaticResource Eq}, ConverterParameter=Dashboard}"
+                                 Command="{Binding NavigateCommand}" CommandParameter="Dashboard"/>
+                    <RadioButton Style="{StaticResource NavItem}" Tag="&#xE8EA;" Content="Devices" GroupName="nav"
+                                 IsChecked="{Binding Page, Mode=OneWay, Converter={StaticResource Eq}, ConverterParameter=Devices}"
+                                 Command="{Binding NavigateCommand}" CommandParameter="Devices"/>
+                    <RadioButton Style="{StaticResource NavItem}" Tag="&#xE71D;" Content="Workspace Studio" GroupName="nav"
+                                 IsChecked="{Binding Page, Mode=OneWay, Converter={StaticResource Eq}, ConverterParameter=Studio}"
+                                 Command="{Binding NavigateCommand}" CommandParameter="Studio"/>
+                    <RadioButton Style="{StaticResource NavItem}" Tag="&#xE713;" Content="Settings" GroupName="nav"
+                                 IsChecked="{Binding Page, Mode=OneWay, Converter={StaticResource Eq}, ConverterParameter=Settings}"
+                                 Command="{Binding NavigateCommand}" CommandParameter="Settings"/>
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <ContentControl Grid.Column="1" Content="{Binding Current}"/>
+    </Grid>
+</Window>

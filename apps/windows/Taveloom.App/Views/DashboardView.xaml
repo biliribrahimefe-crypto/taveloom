@@ -1,0 +1,123 @@
+<UserControl x:Class="Taveloom.App.Views.DashboardView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <ScrollViewer>
+        <StackPanel Margin="36,30,36,30" MaxWidth="1000" HorizontalAlignment="Stretch">
+            <DockPanel Margin="0,0,0,22">
+                <Button DockPanel.Dock="Right" Style="{StaticResource PrimaryButton}" Content="Pair a phone" Command="{Binding PairCommand}" VerticalAlignment="Center"/>
+                <StackPanel>
+                    <TextBlock Text="Dashboard" Style="{StaticResource H1}"/>
+                    <TextBlock Text="What your phone is showing right now." Style="{StaticResource Muted}" Margin="0,2,0,0"/>
+                </StackPanel>
+            </DockPanel>
+
+            <Grid>
+                <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="16"/><ColumnDefinition/><ColumnDefinition Width="16"/><ColumnDefinition/></Grid.ColumnDefinitions>
+
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Text="HOST" Style="{StaticResource Muted}" FontSize="11" FontWeight="SemiBold"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                            <Ellipse Width="9" Height="9" Fill="{Binding HostStatusKind, Converter={StaticResource StatusBrush}}" VerticalAlignment="Center"/>
+                            <TextBlock Text="Running" FontSize="18" FontWeight="SemiBold" Margin="9,0,0,0"/>
+                        </StackPanel>
+                        <TextBlock Text="{Binding HostStatus}" Style="{StaticResource Muted}" Margin="0,6,0,0"/>
+                        <TextBlock Text="Certificate fingerprint" Style="{StaticResource Muted}" FontSize="11" Margin="0,12,0,0"/>
+                        <TextBlock Text="{Binding Fingerprint}" FontFamily="Consolas" FontSize="11.5"/>
+                    </StackPanel>
+                </Border>
+
+                <Border Grid.Column="2" Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Text="DEVICES" Style="{StaticResource Muted}" FontSize="11" FontWeight="SemiBold"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                            <Ellipse Width="9" Height="9" Fill="{Binding DeviceKind, Converter={StaticResource StatusBrush}}" VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding DeviceSummary}" FontSize="18" FontWeight="SemiBold" Margin="9,0,0,0"/>
+                        </StackPanel>
+                        <ItemsControl ItemsSource="{Binding ConnectedDevices}" Margin="0,8,0,0">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate><TextBlock Text="{Binding}" Style="{StaticResource Muted}" Margin="0,2,0,0"/></DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+
+                <Border Grid.Column="4" Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Text="ACTIVE WORKSPACE" Style="{StaticResource Muted}" FontSize="11" FontWeight="SemiBold"/>
+                        <TextBlock Text="{Binding ActiveName}" FontSize="18" FontWeight="SemiBold" Margin="0,10,0,0"/>
+                        <TextBlock Margin="0,6,0,0" Style="{StaticResource Muted}">
+                            <Run Text="{Binding ModeText, Mode=OneWay}"/><Run Text=" · "/><Run Text="{Binding ActiveReason, Mode=OneWay}"/>
+                        </TextBlock>
+                        <CheckBox IsChecked="{Binding AutoEnabled, Mode=TwoWay}" Content="Switch automatically" Margin="0,14,0,0"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <Border Style="{StaticResource Card}" Margin="0,16,0,0">
+                <StackPanel>
+                    <DockPanel>
+                        <Button DockPanel.Dock="Right" Content="Edit workspaces" Command="{Binding OpenStudioCommand}"/>
+                        <TextBlock Text="Quick workspace selection" Style="{StaticResource H2}" VerticalAlignment="Center"/>
+                    </DockPanel>
+                    <TextBlock Text="Picking one pauses automatic switching until you resume it." Style="{StaticResource Muted}" Margin="0,4,0,12"/>
+                    <ItemsControl ItemsSource="{Binding Workspaces}">
+                        <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Button Margin="0,0,10,10" Padding="16,10" MinWidth="150"
+                                        Command="{Binding DataContext.SelectWorkspaceCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsActive}" Value="True">
+                                                    <Setter Property="Background" Value="{DynamicResource AccentSoft}"/>
+                                                    <Setter Property="BorderBrush" Value="{DynamicResource Accent}"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Style="{StaticResource Icon}" Text="{Binding Icon, Converter={StaticResource IconGlyph}}" Margin="0,0,10,0"/>
+                                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold"/>
+                                    </StackPanel>
+                                </Button>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <Button Content="Resume automatic switching" Command="{Binding ResumeAutoCommand}" HorizontalAlignment="Left" Margin="0,2,0,0">
+                        <Button.Style>
+                            <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                                <Setter Property="Visibility" Value="Visible"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding ModeText}" Value="Automatic"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+                </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource Card}" Margin="0,16,0,0">
+                <StackPanel>
+                    <TextBlock Text="Recent activity" Style="{StaticResource H2}"/>
+                    <TextBlock Text="Nothing has been run from a phone yet." Style="{StaticResource Muted}" Margin="0,10,0,0"
+                               Visibility="{Binding RecentEmpty, Converter={StaticResource BoolToVis}}"/>
+                    <ItemsControl ItemsSource="{Binding Recent}" Margin="0,10,0,0">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="22"/><ColumnDefinition Width="72"/><ColumnDefinition Width="170"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                    <Ellipse Width="8" Height="8" Fill="{Binding Status, Converter={StaticResource StatusBrush}}" VerticalAlignment="Center" HorizontalAlignment="Left"/>
+                                    <TextBlock Grid.Column="1" Text="{Binding Time}" Style="{StaticResource Muted}"/>
+                                    <TextBlock Grid.Column="2" Text="{Binding Control}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock Grid.Column="3" Text="{Binding Result}" Style="{StaticResource Muted}" TextTrimming="CharacterEllipsis"/>
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

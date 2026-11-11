@@ -1,0 +1,19 @@
+<Application x:Class="Taveloom.App.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:Taveloom.App.ViewModels"
+             ShutdownMode="OnExplicitShutdown">
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="Themes/Dark.xaml"/>
+                <ResourceDictionary Source="Themes/Styles.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+            <vm:IconGlyphConverter x:Key="IconGlyph"/>
+            <vm:BoolToVisibilityConverter x:Key="BoolToVis"/>
+            <vm:NullToVisibilityConverter x:Key="NullToVis"/>
+            <vm:StatusBrushConverter x:Key="StatusBrush"/>
+            <vm:EqualsConverter x:Key="Eq"/>
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

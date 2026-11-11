@@ -1,0 +1,74 @@
+<UserControl x:Class="Taveloom.App.Views.DevicesView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <ScrollViewer>
+        <StackPanel Margin="36,30,36,30" MaxWidth="1000" HorizontalAlignment="Stretch">
+            <DockPanel Margin="0,0,0,22">
+                <Button DockPanel.Dock="Right" Style="{StaticResource PrimaryButton}" Content="Pair a phone" Command="{Binding PairCommand}" VerticalAlignment="Center"/>
+                <StackPanel>
+                    <TextBlock Text="Devices" Style="{StaticResource H1}"/>
+                    <TextBlock Text="Phones and tablets that are allowed to control this PC." Style="{StaticResource Muted}" Margin="0,2,0,0"/>
+                </StackPanel>
+            </DockPanel>
+
+            <Border Style="{StaticResource Card}" Visibility="{Binding IsEmpty, Converter={StaticResource BoolToVis}}">
+                <StackPanel HorizontalAlignment="Center" Margin="0,24">
+                    <TextBlock Style="{StaticResource Icon}" Text="&#xE8EA;" FontSize="34" Foreground="{DynamicResource TextMuted}" HorizontalAlignment="Center"/>
+                    <TextBlock Text="No devices paired yet" Style="{StaticResource H2}" HorizontalAlignment="Center" Margin="0,12,0,4"/>
+                    <TextBlock Text="Install the Taveloom Android app, then scan the pairing code." Style="{StaticResource Muted}" HorizontalAlignment="Center" TextAlignment="Center"/>
+                </StackPanel>
+            </Border>
+
+            <ItemsControl ItemsSource="{Binding Devices}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Border Style="{StaticResource Card}" Margin="0,0,0,12" Padding="18,14">
+                            <Grid>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <StackPanel>
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBox Text="{Binding Name, UpdateSourceTrigger=LostFocus}" MinWidth="220" FontWeight="SemiBold" Background="Transparent" BorderBrush="Transparent"
+                                                 LostFocus="OnNameCommitted" ToolTip="Click to rename"/>
+                                        <Border CornerRadius="10" Padding="9,2" Margin="10,0,0,0" Background="{DynamicResource SurfaceAlt}" VerticalAlignment="Center">
+                                            <StackPanel Orientation="Horizontal">
+                                                <Ellipse Width="7" Height="7" Fill="{Binding StatusKind, Converter={StaticResource StatusBrush}}" VerticalAlignment="Center"/>
+                                                <TextBlock Text="{Binding Status}" FontSize="12" Margin="6,0,0,0"/>
+                                            </StackPanel>
+                                        </Border>
+                                    </StackPanel>
+                                    <TextBlock Margin="10,2,0,0" Style="{StaticResource Muted}">
+                                        <Run Text="{Binding Paired, Mode=OneWay}"/><Run Text="  ·  "/><Run Text="{Binding LastSeen, Mode=OneWay}"/>
+                                    </TextBlock>
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Button Content="Disconnect" Margin="0,0,8,0" Visibility="{Binding IsConnected, Converter={StaticResource BoolToVis}}"
+                                            Command="{Binding DataContext.DisconnectCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}"/>
+                                    <Button Content="Revoke" Style="{StaticResource DangerButton}" Visibility="{Binding IsRevoked, Converter={StaticResource BoolToVis}, ConverterParameter=invert}"
+                                            Command="{Binding DataContext.RevokeCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}"/>
+                                    <Button Content="Remove from list" Visibility="{Binding IsRevoked, Converter={StaticResource BoolToVis}}"
+                                            Command="{Binding DataContext.ForgetCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}"/>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <Border Style="{StaticResource Card}" Margin="0,10,0,0">
+                <StackPanel>
+                    <TextBlock Text="Connection troubleshooting" Style="{StaticResource H2}"/>
+                    <ItemsControl ItemsSource="{Binding Checks}" Margin="0,10,0,0">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                                    <TextBlock Text="•" Style="{StaticResource Muted}" Margin="0,0,8,0"/>
+                                    <TextBlock Text="{Binding}" Style="{StaticResource Muted}" MaxWidth="820"/>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

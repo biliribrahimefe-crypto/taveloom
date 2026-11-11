@@ -1,0 +1,32 @@
+# .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+TestResults/
+artifacts/
+
+# Flutter / Android
+apps/android/.dart_tool/
+apps/android/build/
+apps/android/.flutter-plugins*
+apps/android/pubspec.lock.bak
+*.jks
+*.keystore
+key.properties
+local.properties
+
+# Local data, secrets, tooling
+*.db
+*.db-wal
+*.db-shm
+*.dpapi
+*.pfx
+.env
+graphify-out/
+.claude/
+
+# OS
+Thumbs.db
+.DS_Store
