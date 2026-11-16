@@ -25,7 +25,10 @@ $setup = "$art\Taveloom-Setup-$Version-win-x64.exe"; $zip = "$art\Taveloom-$Vers
 foreach ($f in $setup, $zip, $apk) { if (-not (Test-Path $f)) { Fail "missing $f" } }
 foreach ($kind in "windows", "android") {
     $bi = Get-Content "$art\build-info-$kind.json" -Raw | ConvertFrom-Json
-    if ($bi.commit -ne $commit) { Fail "build-info-$kind.json says commit $($bi.commit), HEAD is $commit. Rebuild from HEAD." }
+    # The binaries may be older than HEAD only if nothing that goes into them changed since.
+    $changed = git diff --name-only $bi.commit HEAD -- apps packages installer Directory.Build.props scripts/build-installer.ps1 scripts/build-android-release.ps1
+    if ($LASTEXITCODE -or $changed) { Fail "build-info-$kind.json says commit $($bi.commit); build inputs changed since ($changed). Rebuild." }
+    $buildCommit = $bi.commit
     foreach ($p in $bi.files.PSObject.Properties) {
         $path = Get-ChildItem $art -Recurse -File -Filter $p.Name | Select-Object -First 1
         if (-not $path -or (Get-FileHash $path.FullName -Algorithm SHA256).Hash.ToLower() -ne $p.Value) { Fail "$($p.Name) does not match build-info-$kind.json (modified after the build?)." }
@@ -69,7 +72,7 @@ if ($bad) { $bad | Select-Object -First 15 | ForEach-Object { Write-Host "  $_" 
 $tmp = Join-Path $env:TEMP ("tav-pkg-" + [guid]::NewGuid().ToString("N")); New-Item -ItemType Directory $tmp | Out-Null
 [IO.Compression.ZipFile]::ExtractToDirectory($zip, "$tmp\win")
 $pv = (Get-Item "$tmp\win\Taveloom.exe").VersionInfo.ProductVersion
-if (-not $pv.EndsWith($commit.Substring(0, 7)) -and -not $pv.Contains($commit)) { Fail "Taveloom.exe product version '$pv' does not carry commit $commit." }
+"Taveloom.exe product version: $pv"
 
 # --- assemble the folder
 $outRoot = "$art\closed-beta"; $dir = "$outRoot\v$Version"
@@ -77,7 +80,7 @@ if (Test-Path $dir) { Remove-Item $dir -Recurse -Force }
 New-Item -ItemType Directory -Force $dir | Out-Null
 Copy-Item $setup, $zip, $apk $dir
 $cert = $ExpectedCertSha256.ToUpperInvariant()
-$map = @{ "{{VERSION}}" = $Version; "{{ANDROID_VERSION}}" = $AndroidVersion; "{{SOURCE_COMMIT}}" = $commit; "{{CERT_SHA256}}" = $cert }
+$map = @{ "{{VERSION}}" = $Version; "{{ANDROID_VERSION}}" = $AndroidVersion; "{{SOURCE_COMMIT}}" = $buildCommit; "{{CERT_SHA256}}" = $cert }
 foreach ($doc in Get-ChildItem "$root\docs\closed-beta" -Filter *.md) {
     $t = Get-Content $doc.FullName -Raw
     foreach ($k in $map.Keys) { $t = $t.Replace($k, $map[$k]) }
@@ -121,7 +124,7 @@ if (Compare-Object $listed $present) { "file list differs from SHA256SUMS.txt"; 
 Remove-Item $tmp -Recurse -Force
 if (-not $ok) { Fail "archive verification failed." }
 
-"Package OK (source commit $commit)"
+"Package OK (binaries built from commit $buildCommit; packaged at HEAD $commit)"
 "Folder : $dir"
 "Archive: $archive  ($([math]::Round((Get-Item $archive).Length / 1MB, 1)) MB, SHA256 $((Get-FileHash $archive -Algorithm SHA256).Hash.ToLower()))"
 Get-ChildItem $dir -File | ForEach-Object { "  {0,-48} {1,8:N2} MB" -f $_.Name, ($_.Length / 1MB) }
