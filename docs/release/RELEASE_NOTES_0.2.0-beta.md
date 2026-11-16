@@ -11,9 +11,12 @@ Full description: [README](../../README.md).
 | --- | --- | --- |
 | `Taveloom-Setup-0.2.0-beta.1-win-x64.exe` | Windows 11 | Per-user installer (no admin). **Unsigned**: SmartScreen warns. |
 | `Taveloom-0.2.0-beta.1-win-x64.zip` | Windows 11 | Portable, self-contained. Unsigned. |
-| `Taveloom-0.2.0-beta.1-android.apk` | Android 7.0+ | Sideload. Debug-signed until a release key exists. |
-| `Taveloom-0.2.0-beta.1-android.aab` | (maintainers) | Not for end users; cannot be uploaded to Google Play while debug-signed. |
+| `Taveloom-0.2.0-beta.1-android.apk` | Android 7.0+ | Sideload. Signed with the Taveloom release key (SHA-256 below). |
+| `Taveloom-0.2.0-beta.1-android.aab` | (maintainers) | Kept locally for future Google Play work; not part of the tester package. |
 | `SHA256SUMS.txt` | all | Verify every download before running it. |
+
+Android release certificate (SHA-256, `CN=Taveloom Release, OU=Tavrynt Studios`):
+`8C:62:05:9B:88:B9:DB:36:99:E4:39:14:C2:43:C7:E8:67:97:AD:63:A1:50:73:35:48:42:33:F3:71:95:A8:40`
 
 Install and pairing steps: [Windows](../installation/windows.md), [Android](../installation/android.md).
 
@@ -51,7 +54,7 @@ Windows installations upgrade in place and keep their data. See [package-migrati
 ## Known limitations
 
 - Tested on one phone and Windows 11 only; Windows 10 is unsupported. Other devices, routers and Wi-Fi setups may behave differently.
-- Windows installer/executables are **unsigned**; the Android APK is debug-signed (updating from a build signed with another key requires uninstalling and re-pairing).
+- Windows installer/executables are **unsigned**; the Android APK is release-signed with a key that has no external reputation (updates only work between builds signed with the same key). GitHub Actions builds debug-signed *test* APKs that are never distributed (see [artifacts](artifacts.md)).
 - Not tested: upgrading the installer while Taveloom is running, tablets, non-English Windows, Android versions other than the tested phone's.
 - Media keys are sent to whatever player Windows chooses; Windows does not report whether it reacted. No track info.
 - Hotkeys cannot reach elevated (administrator) windows.

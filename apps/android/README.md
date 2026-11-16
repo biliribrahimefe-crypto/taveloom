@@ -4,7 +4,8 @@ Flutter client. It renders the workspaces your Windows PC sends and forwards tap
 anything itself.
 
 > **Status:** `flutter analyze` is clean, `flutter test` passes (5 tests), and `flutter build apk --release` succeeds (Flutter 3.47.9, JDK 21).
-> The app has **not** been run on a device or emulator. The release APK is signed with the debug key.
+> The app has been run on one physical Android phone (see the repository README, "What was tested"). Release builds are signed with the maintainer's release key
+> (outside the repository, see `docs/release/android-signing.md`); CI builds a debug-signed **test** APK that must never be distributed (`docs/release/artifacts.md`).
 
 ## First-time setup
 

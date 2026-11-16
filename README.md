@@ -58,7 +58,7 @@ On first start allow Windows Firewall for **private networks** only, then use De
 
 Install the `Taveloom-<version>-android.apk` from the release page (Android 7.0+; details and troubleshooting in
 [docs/installation/android.md](docs/installation/android.md)), tap through the intro, scan the PC's QR code, and click **Allow**
-on the PC. The beta APK is debug-signed until a release key exists; it is not on Google Play.
+on the PC. The beta APK is signed with the Taveloom release key (its certificate fingerprint is in the release notes); it is distributed outside Google Play.
 
 ## What was tested
 
@@ -99,7 +99,7 @@ and report problems via [SECURITY.md](SECURITY.md).
   (for example switching browser tabs) do not re-trigger rules.
 * Connection settings (port, LAN on/off) apply after restarting Taveloom.
 * The phone must be given the PC's address from the QR code; there is no auto-discovery, and a PC whose IP changes needs a new QR.
-* Windows installer and executables are **unsigned** (SmartScreen warning); the Android APK is debug-signed. No auto-update.
+* Windows installer and executables are **unsigned** (SmartScreen warning); the Android APK is release-signed with a key that has no external reputation. No auto-update.
 * Android release builds do not use R8 shrinking ([why](docs/release/r8-shrinking.md)); the APK is a few MB larger.
 
 ## Build from source
