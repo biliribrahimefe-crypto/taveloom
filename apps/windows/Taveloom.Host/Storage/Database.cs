@@ -72,6 +72,10 @@ public sealed class AuditLog(Database db)
         db.Run("INSERT INTO audit(ts,kind,device_id,detail) VALUES($t,$k,$d,$x)",
             ("$t", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()), ("$k", kind), ("$d", deviceId), ("$x", detail));
 
+    /// <summary>Keeps the audit trail bounded (privacy and disk use): only the newest <paramref name="keep"/> entries survive.</summary>
+    public void Prune(int keep = 2000) =>
+        db.Run("DELETE FROM audit WHERE id <= (SELECT MAX(id) FROM audit) - $k", ("$k", keep));
+
     public List<(long Ts, string Kind, string? DeviceId, string? Detail)> Recent(int count = 100) =>
         db.Query("SELECT ts,kind,device_id,detail FROM audit ORDER BY id DESC LIMIT $n",
             r => (r.GetInt64(0), r.GetString(1), r.IsDBNull(2) ? null : r.GetString(2), r.IsDBNull(3) ? null : r.GetString(3)), ("$n", count));

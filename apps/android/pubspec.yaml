@@ -1,7 +1,7 @@
 name: taveloom
 description: Taveloom - turn your Android phone into an adaptive control surface for your Windows PC.
 publish_to: "none"
-version: 0.1.0+1
+version: 0.2.0-beta+2
 
 environment:
   sdk: ">=3.7.0 <4.0.0"

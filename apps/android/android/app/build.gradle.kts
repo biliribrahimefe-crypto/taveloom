@@ -51,9 +51,10 @@ android {
     buildTypes {
         release {
             signingConfig = signingConfigs.getByName(if (keyProps.isNotEmpty()) "release" else "debug")
-            // TEMPORARY, unconfirmed: R8 is suspected of breaking the ML Kit / CameraX QR scanner. See docs/development/building.md.
-            isMinifyEnabled = false
-            isShrinkResources = false
+            // R8 shrinking is OFF by default; set TAVELOOM_R8=1 to build with it. See docs/release/r8-shrinking.md.
+            val r8 = System.getenv("TAVELOOM_R8") == "1"
+            isMinifyEnabled = r8
+            isShrinkResources = r8
         }
     }
 }

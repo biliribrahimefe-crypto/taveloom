@@ -5,6 +5,17 @@ All notable changes are recorded here. The format follows [Keep a Changelog](htt
 
 ## [Unreleased]
 
+Release candidate for **0.2.0-beta** (versions set to `0.2.0-beta.1` / Android `0.2.0-beta+2`). Not tagged or released yet.
+See [docs/release/RELEASE_NOTES_0.2.0-beta.md](docs/release/RELEASE_NOTES_0.2.0-beta.md).
+
+### Release engineering
+- Windows per-user installer (Inno Setup) with upgrade-in-place and optional data removal; install/upgrade/uninstall lifecycle test script.
+- Android: backups and cleartext traffic disabled, app label fixed, optional release signing, `scripts/new-android-keystore.ps1`,
+  AAB build, R8 switch (`TAVELOOM_R8=1`, default off) with documented evidence and procedure.
+- CI pins `ubuntu-24.04`, Flutter 3.47.9, JDK 21.
+- Audit log is pruned to the newest 2000 events at start.
+- Docs: PRIVACY, SUPPORT, THIRD_PARTY_NOTICES, installation guides, release notes and checklist.
+
 ### Fixed
 - **Pairing failed when the user waited ~20 s before clicking Allow** (found on a physical phone: "The connection closed before
   pairing finished"). Root cause: the host awaited the human approval *on the socket receive loop*, so it stopped reading the

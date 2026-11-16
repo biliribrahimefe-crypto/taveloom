@@ -3,7 +3,7 @@
 <p>
   <a href="https://github.com/biliribrahimefe-crypto/taveloom/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/biliribrahimefe-crypto/taveloom/actions/workflows/ci.yml/badge.svg"/></a>
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"/></a>
-  <img alt="Status: pre-release" src="https://img.shields.io/badge/status-pre--release-orange.svg"/>
+  <img alt="Status: beta" src="https://img.shields.io/badge/status-beta-orange.svg"/>
   <img alt="Windows 11" src="https://img.shields.io/badge/Windows-11-0078D4.svg"/>
   <img alt="Android (Flutter)" src="https://img.shields.io/badge/Android-Flutter-02569B.svg"/>
 </p>
@@ -13,9 +13,9 @@
 Taveloom turns an Android phone or tablet into a real-time control surface for a Windows 11 PC. What sets it apart from a plain
 button deck is the **Adaptive Workspace Engine**: Taveloom notices which app you are using and shows the controls that matter for it.
 
-> **Project status: pre-release (0.1.0), not production-ready.**
-> The Windows host and app are implemented and tested. The Android app passes `flutter analyze` and its unit tests and builds
-> into an APK, but it has **never been run on a phone or emulator**, so phone-to-PC operation is **not verified end to end**.
+> **Project status: controlled beta (0.2.0-beta, release candidate in preparation), not production-ready.**
+> The Windows host/app and the Android app work together; the core flows were tested on **one physical Android phone**
+> (see [What was tested](#what-was-tested)). It has not had an independent security audit, builds are unsigned, and only Windows 11 is supported.
 > See [Current limitations](#current-limitations).
 
 <p align="center">
@@ -23,38 +23,50 @@ button deck is the **Adaptive Workspace Engine**: Taveloom notices which app you
   <img src="assets/screenshots/windows-studio.png" width="46%" alt="Workspace Studio on Windows"/>
 </p>
 
-<sub>Real screenshots of the Windows app (captured in loopback-only development mode, hence "this PC only"). There are no Android
-screenshots yet because the Android app has not been built.</sub>
+<sub>Real screenshots of the Windows app (captured in loopback-only development mode, hence "this PC only"). Android screenshots
+have not been added yet.</sub>
 
 ## What works today
 
 | Area | Status |
 | --- | --- |
-| Secure pairing: QR code, one-time token, pinned TLS certificate, explicit approval on Windows | Implemented, integration-tested over real TLS |
+| Secure pairing: QR code, one-time token, pinned TLS certificate, explicit approval on Windows | Implemented; integration-tested over real TLS and confirmed on a physical phone |
 | Authentication: challenge-response, revocation, rate limiting, audit log | Implemented, tested |
 | Actions: hotkeys, launch app / folder / URL, media keys, volume and mute, screenshot, lock PC | Implemented; real Windows APIs probed on a dev machine |
-| Live widgets: button, toggle, value display (CPU, RAM, volume, mic), media control, volume slider | Implemented (host + Android source) |
+| Live widgets: button, toggle, value display (CPU, RAM, volume, mic), media control, volume slider | Implemented; Play/Pause, volume slider and screenshot confirmed on a phone |
 | Adaptive workspaces: focus-based rules, priorities, default fallback, manual override, debounce | Implemented, tested |
 | Workspace Studio: create, rename, duplicate, delete, drag-and-drop layout, rules, "run on this PC" | Implemented |
 | Starter workspaces: Development, Productivity, Media (editable) | Implemented |
 | Windows app: dashboard, devices, settings, dark/light theme, tray, start with Windows | Implemented |
-| Android app (Flutter): onboarding, QR scan, controls, reconnection | Analyzes clean, 5 unit tests pass, APK builds; **never run on a device** |
-| Installer (MSI/MSIX), signed builds, LAN auto-discovery, media track info | Not built |
+| Android app (Flutter): onboarding, QR scan, controls, reconnection, background/resume | Implemented; confirmed on one physical phone; CI builds the APK |
+| Windows installer (per-user, Inno Setup) | Implemented; install/upgrade/uninstall tested locally; **unsigned** |
+| Code-signed builds, Google Play release, LAN auto-discovery, media track info | Not built |
 
 ## Getting started
 
 ### Windows
 
-1. Download `Taveloom-0.1.0-win-x64.zip` (self-contained, no .NET install needed), unzip, run `Taveloom.exe`.
-   The build is **unsigned**, so Windows SmartScreen will warn you.
-2. The first time it listens on your network, Windows Firewall asks for permission. Allow **private networks** only.
-3. Devices > **Pair a phone** shows a QR code.
+Download `Taveloom-Setup-<version>-win-x64.exe` from the release page and run it (per-user, no administrator rights). It is
+**unsigned**, so SmartScreen warns; verify the SHA-256 from the release notes first. Details, updating, uninstalling and
+troubleshooting: [docs/installation/windows.md](docs/installation/windows.md). A portable zip is also provided.
+
+On first start allow Windows Firewall for **private networks** only, then use Devices → **Pair a phone**.
 
 ### Android
 
-A debug-signed `Taveloom-0.1.0-android-release.apk` can be built from source (see [apps/android/README.md](apps/android/README.md) and
-[docs/development/building.md](docs/development/building.md)); it is not Play-Store signed. Then: install, tap through the intro, scan the QR code, and click
-**Allow** on your PC.
+Install the `Taveloom-<version>-android.apk` from the release page (Android 7.0+; details and troubleshooting in
+[docs/installation/android.md](docs/installation/android.md)), tap through the intro, scan the PC's QR code, and click **Allow**
+on the PC. The beta APK is debug-signed until a release key exists; it is not on Google Play.
+
+## What was tested
+
+Automated (local and GitHub Actions): .NET build, format and 117 unit/integration tests (real TLS WebSocket host); Flutter format,
+analyze and unit tests; Android APK build; a script that runs the real Android client code against the real Windows host.
+
+Manually, on **one** physical Android phone against the Windows app: QR scanning, immediate and delayed (25 s, 40 s) pairing approval,
+pairing rejection, Android-side pairing timeout, device revocation, Play/Pause, volume slider, screenshot action, Wi-Fi interruption
+and automatic reconnection, Windows restart and automatic reconnection, Android background/resume. Other phones, Android versions,
+routers and Windows setups have not been tested.
 
 ## How it works
 
@@ -77,7 +89,7 @@ and report problems via [SECURITY.md](SECURITY.md).
 
 ## Current limitations
 
-* **Android is untested on hardware.** Analyze, unit tests and an APK build pass, but pairing, scanning, reconnection and actions have not been tried on a phone or emulator.
+* **Limited device coverage:** one physical phone has been used; other devices, Android versions and networks may behave differently.
 * Only **Windows 11** was used for development; Windows 10 is untested.
 * Media keys are sent to whatever player Windows chooses; Windows does not say whether it reacted. Track info is not shown.
 * Hotkeys cannot reach elevated (administrator) windows.
@@ -85,7 +97,8 @@ and report problems via [SECURITY.md](SECURITY.md).
   (for example switching browser tabs) do not re-trigger rules.
 * Connection settings (port, LAN on/off) apply after restarting Taveloom.
 * The phone must be given the PC's address from the QR code; there is no auto-discovery, and a PC whose IP changes needs a new QR.
-* Unsigned build, no installer, no auto-update.
+* Windows installer and executables are **unsigned** (SmartScreen warning); the Android APK is debug-signed. No auto-update.
+* Android release builds do not use R8 shrinking ([why](docs/release/r8-shrinking.md)); the APK is a few MB larger.
 
 ## Build from source
 
@@ -95,6 +108,7 @@ Requires the .NET 10 SDK and Windows 11 for the app and tests.
 dotnet build Taveloom.sln -c Release
 dotnet test Taveloom.sln -c Release
 dotnet publish apps/windows/Taveloom.App -c Release -r win-x64 --self-contained true -o artifacts/windows-x64
+scripts/build-installer.ps1      # installer (needs Inno Setup 6)
 ```
 
 Android: see [docs/development/building.md](docs/development/building.md).
@@ -114,8 +128,13 @@ docs/                        architecture, security, installation, development
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) and the [Code of Conduct](CODE_OF_CONDUCT.md).
 
+## Privacy, support and notices
+
+- [PRIVACY.md](PRIVACY.md): what is stored where; no accounts, no telemetry, no external servers.
+- [SUPPORT.md](SUPPORT.md): how to get help and what to include in a bug report.
+- [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md): dependency licenses.
+- Release engineering: [docs/release](docs/release) (installer, Android signing, R8).
+
 ## License
 
-[MIT](LICENSE) © 2026 EFEDEV. .NET dependencies: CommunityToolkit.Mvvm, Microsoft.Data.Sqlite, QRCoder, System.Drawing.Common (MIT) and
-SQLitePCLRaw (Apache-2.0, bundling the public-domain SQLite). Flutter dependencies (`crypto`, `flutter_secure_storage`,
-`mobile_scanner`): licenses still to be confirmed with a dependency license check before a public release.
+[MIT](LICENSE) © 2026 EFEDEV. Dependency licenses are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

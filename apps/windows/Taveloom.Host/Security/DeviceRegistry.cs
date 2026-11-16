@@ -14,6 +14,9 @@ public sealed class DeviceRegistry(Database db, AuditLog audit)
 
     public static bool IsValidDeviceId(string? id) => id is { Length: >= 8 and <= 64 } && id.All(ch => char.IsAsciiLetterOrDigit(ch) || ch is '-' or '_');
 
+    /// <summary>The name is shown in the approval dialog, so it is untrusted input: 1-40 characters, no control or invisible formatting characters (e.g. bidi overrides).</summary>
+    public static bool IsValidDeviceName(string? name) => !string.IsNullOrWhiteSpace(name) && name.Length <= 40 && !name.Any(c => char.IsControl(c) || char.GetUnicodeCategory(c) == System.Globalization.UnicodeCategory.Format);
+
     public byte[] AddOrReplace(string id, string name)
     {
         var credential = RandomNumberGenerator.GetBytes(32);

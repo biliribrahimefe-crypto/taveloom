@@ -101,6 +101,7 @@ public sealed class TaveloomHost : IAsyncDisposable
 
     public async Task StartAsync()
     {
+        Audit.Prune();
         await _server.StartAsync(_ctx, _cert, _options.Port, _options.LanExposure);
         Adaptive.Start();
         // Telemetry is only sampled while at least one phone is connected.

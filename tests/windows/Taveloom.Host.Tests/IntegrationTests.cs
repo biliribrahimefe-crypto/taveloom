@@ -140,6 +140,38 @@ public class ConnectionTests
         Assert.Empty(t.Host.Devices.List());
     }
 
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("Phone\u202Eevil")]   // bidi override could disguise the text in the approval dialog
+    [InlineData("tab\there")]
+    [InlineData("line\nbreak")]
+    public async Task UntrustedDeviceNamesAreValidatedBeforeAnyPrompt(string name)
+    {
+        await using var t = await TestHost.StartAsync(autoApprove: false);
+        var prompts = 0;
+        t.Host.Pairing.ApprovalRequested += p => { prompts++; t.Host.Pairing.Resolve(p.RequestId, false); };
+        var qr = t.Host.CreatePairing().Qr;
+        await using var c = await TestClient.ConnectAsync(t.Host.Port, qr.Fingerprint);
+        await c.SendAsync(MessageTypes.PairRequest, new PairRequestPayload(qr.Token, t.NewDeviceId(), name));
+        var e = await c.ReceiveAsync();
+        Assert.Equal(ErrorCodes.InvalidMessage, TestClient.Read<ErrorPayload>(e!).Code);
+        Assert.Equal(0, prompts);
+    }
+
+    [Fact]
+    public async Task OverlongDeviceNameIsRejectedWithoutPrompt()
+    {
+        await using var t = await TestHost.StartAsync(autoApprove: false);
+        var prompts = 0;
+        t.Host.Pairing.ApprovalRequested += _ => prompts++;
+        var qr = t.Host.CreatePairing().Qr;
+        await using var c = await TestClient.ConnectAsync(t.Host.Port, qr.Fingerprint);
+        await c.SendAsync(MessageTypes.PairRequest, new PairRequestPayload(qr.Token, t.NewDeviceId(), new string('A', 41)));
+        Assert.Equal(ErrorCodes.InvalidMessage, TestClient.Read<ErrorPayload>((await c.ReceiveAsync())!).Code);
+        Assert.Equal(0, prompts);
+    }
+
     [Fact]
     public async Task PairingWithNobodyToApproveIsRefused()
     {
@@ -575,6 +607,17 @@ public class PersistenceTests
         Assert.True(ws.Delete(copy.Id)); Assert.False(ws.Delete(copy.Id));
         Assert.NotEmpty(ws.Save(dev with { Name = "" }));          // invalid edits are refused, nothing is overwritten
         Assert.Equal("Development", ws.Get(dev.Id)!.Name);
+    }
+
+    [Fact]
+    public async Task AuditLogIsBoundedByPrune()
+    {
+        await using var t = await TestHost.StartAsync();
+        for (var i = 0; i < 2600; i++) t.Host.Audit.Write("test.event", null, i.ToString());
+        t.Host.Audit.Prune();
+        var left = t.Host.Audit.Recent(10000);
+        Assert.InRange(left.Count, 1900, 2001);
+        Assert.Equal("2599", left[0].Detail);                              // newest entry kept
     }
 
     [Fact]

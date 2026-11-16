@@ -217,7 +217,7 @@ public sealed class ClientSession
     private void HandlePair(Envelope env, CancellationToken ct)
     {
         if (_ctx.Throttle.IsBlocked(_remote)) { SendError(ErrorCodes.RateLimited, "Too many failed attempts. Try again in a minute."); _violations = 3; return; }
-        if (!env.TryReadPayload<PairRequestPayload>(out var p) || !DeviceRegistry.IsValidDeviceId(p.DeviceId) || string.IsNullOrWhiteSpace(p.DeviceName))
+        if (!env.TryReadPayload<PairRequestPayload>(out var p) || !DeviceRegistry.IsValidDeviceId(p.DeviceId) || !DeviceRegistry.IsValidDeviceName(p.DeviceName))
         { SendError(ErrorCodes.InvalidMessage, "Invalid pairing request.", env.Id); _violations++; return; }
 
         switch (_ctx.Pairing.Consume(p.Token))
