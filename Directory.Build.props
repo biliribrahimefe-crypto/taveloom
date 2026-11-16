@@ -1,8 +1,9 @@
 <Project>
   <PropertyGroup>
-    <Version>0.1.0</Version>
-    <Authors>EFEDEV</Authors>
-    <Company>EFEDEV</Company>
+    <Version>0.2.0-beta.1</Version>
+    <Authors>Tavrynt Studios</Authors>
+    <Company>Tavrynt Studios</Company>
+    <Copyright>Copyright (c) 2026 EFEDEV. Distributed under the Tavrynt Studios brand. MIT License.</Copyright>
     <Product>Taveloom</Product>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
   </PropertyGroup>

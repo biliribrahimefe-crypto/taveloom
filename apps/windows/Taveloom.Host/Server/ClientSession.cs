@@ -49,7 +49,7 @@ public sealed class SessionRegistry
 /// <summary>One WebSocket connection: pairing or authentication first, then actions and state sync.</summary>
 public sealed class ClientSession
 {
-    private enum Phase { Anonymous, Challenged, Authenticated }
+    private enum Phase { Anonymous, Pairing, Challenged, Authenticated }
 
     private readonly HostContext _ctx;
     private readonly WebSocket _ws;
@@ -58,8 +58,9 @@ public sealed class ClientSession
     private readonly CancellationTokenSource _life = new();
     private readonly Dictionary<string, Task<ActionResultPayload>> _requests = new();
     private readonly Queue<string> _requestOrder = new();
-    private Phase _phase = Phase.Anonymous;
+    private volatile Phase _phase = Phase.Anonymous; // written by the receive loop and by the background pairing task
     private string? _challengeNonce, _challengeDevice;
+    private CancellationTokenSource? _authTimer;
     private int _violations;
     private double _tokens = 20; private long _lastRefill = Environment.TickCount64;
 
@@ -87,6 +88,7 @@ public sealed class ClientSession
     public async Task RunAsync(CancellationToken serverStopping)
     {
         using var authTimer = new CancellationTokenSource(_ctx.AuthTimeout);
+        _authTimer = authTimer;
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(serverStopping, _life.Token, authTimer.Token);
         _ctx.Sessions.Add(this);
         var writer = WriteLoopAsync(cts.Token);
@@ -105,7 +107,7 @@ public sealed class ClientSession
                 var wasAuthenticated = Authenticated;
                 await HandleAsync(env, cts.Token);
                 if (!wasAuthenticated && Authenticated) authTimer.CancelAfter(Timeout.InfiniteTimeSpan);
-                if (_phase == Phase.Anonymous && _violations >= 3) break;
+                if (_phase != Phase.Authenticated && _violations >= 3) break;
             }
         }
         catch (OperationCanceledException) { }
@@ -155,9 +157,10 @@ public sealed class ClientSession
                 await _ws.SendAsync(bytes, WebSocketMessageType.Text, true, ct);
             }
         }
-        catch (OperationCanceledException) { }
-        catch (WebSocketException) { }
-        finally { _life.Cancel(); }
+        catch (OperationCanceledException) { _life.Cancel(); }
+        catch (WebSocketException) { _life.Cancel(); }
+        // A normally drained queue (CloseAsync) must not cut the receive loop short: the peer needs time to read the last frames,
+        // so the session ends via CloseAsync's own grace timer.
     }
 
     private void SendError(string code, string message, string? requestId = null) =>
@@ -171,7 +174,7 @@ public sealed class ClientSession
         {
             switch (env.Type)
             {
-                case MessageTypes.PairRequest when _phase == Phase.Anonymous: await HandlePairAsync(env, ct); return;
+                case MessageTypes.PairRequest when _phase == Phase.Anonymous: HandlePair(env, ct); return;
                 case MessageTypes.AuthHello when _phase == Phase.Anonymous: HandleHello(env); return;
                 case MessageTypes.AuthResponse when _phase == Phase.Challenged: await HandleAuthResponseAsync(env); return;
                 default:
@@ -211,10 +214,10 @@ public sealed class ClientSession
         if (_ctx.Workspaces.Revision == revisionBefore) Send(Envelope.Create(MessageTypes.WorkspaceState, _ctx.Workspaces.BuildState()));
     }
 
-    private async Task HandlePairAsync(Envelope env, CancellationToken ct)
+    private void HandlePair(Envelope env, CancellationToken ct)
     {
         if (_ctx.Throttle.IsBlocked(_remote)) { SendError(ErrorCodes.RateLimited, "Too many failed attempts. Try again in a minute."); _violations = 3; return; }
-        if (!env.TryReadPayload<PairRequestPayload>(out var p) || !DeviceRegistry.IsValidDeviceId(p.DeviceId) || string.IsNullOrWhiteSpace(p.DeviceName))
+        if (!env.TryReadPayload<PairRequestPayload>(out var p) || !DeviceRegistry.IsValidDeviceId(p.DeviceId) || !DeviceRegistry.IsValidDeviceName(p.DeviceName))
         { SendError(ErrorCodes.InvalidMessage, "Invalid pairing request.", env.Id); _violations++; return; }
 
         switch (_ctx.Pairing.Consume(p.Token))
@@ -228,19 +231,45 @@ public sealed class ClientSession
         }
 
         Send(Envelope.Empty(MessageTypes.PairPending, env.Id));
-        var approved = await _ctx.Pairing.RequestApprovalAsync(p.DeviceId, p.DeviceName, _remote, ct);
-        if (!approved)
-        {
-            _ctx.Audit.Write("pair.rejected", p.DeviceId, _remote);
-            Send(Envelope.Empty(MessageTypes.PairRejected, env.Id));
-            SendError(ErrorCodes.PairingRejected, "The pairing request was declined on the Windows PC.", env.Id);
-            _violations = 3; return;
-        }
+        _authTimer?.CancelAfter(Timeout.InfiniteTimeSpan); // a human is deciding; PairingService.ApprovalTimeout bounds the wait
+        // The wait for the human must NOT run on the receive loop: a socket that is not being read never answers protocol-level
+        // pings, and clients drop such peers (Android after ~20 s). While Pairing, the loop accepts only ping.
+        _phase = Phase.Pairing;
+        _ = CompletePairingAsync(p, env.Id, ct);
+    }
 
-        var credential = _ctx.Devices.AddOrReplace(p.DeviceId, p.DeviceName);
-        Send(Envelope.Create(MessageTypes.PairApproved,
-            new PairApprovedPayload(p.DeviceId, System.Buffers.Text.Base64Url.EncodeToString(credential), _ctx.HostName), env.Id));
-        BecomeAuthenticated(p.DeviceId, p.DeviceName);
+    private async Task CompletePairingAsync(PairRequestPayload p, string? requestId, CancellationToken ct)
+    {
+        try
+        {
+            var approved = await _ctx.Pairing.RequestApprovalAsync(p.DeviceId, p.DeviceName, _remote, ct);
+            if (!approved)
+            {
+                _ctx.Audit.Write("pair.rejected", p.DeviceId, _remote);
+                Send(Envelope.Empty(MessageTypes.PairRejected, requestId));
+                SendError(ErrorCodes.PairingRejected, "The pairing request was declined on the Windows PC.", requestId);
+                _phase = Phase.Anonymous;
+                await CloseAsync(null);
+                return;
+            }
+            if (ct.IsCancellationRequested || _ws.State != WebSocketState.Open)
+            {   // the phone went away while the user was deciding: do not create a trusted device nobody received a credential for
+                _ctx.Audit.Write("pair.aborted", p.DeviceId, _remote);
+                _phase = Phase.Anonymous;
+                return;
+            }
+            var credential = _ctx.Devices.AddOrReplace(p.DeviceId, p.DeviceName);
+            Send(Envelope.Create(MessageTypes.PairApproved,
+                new PairApprovedPayload(p.DeviceId, System.Buffers.Text.Base64Url.EncodeToString(credential), _ctx.HostName), requestId));
+            BecomeAuthenticated(p.DeviceId, p.DeviceName);
+        }
+        catch (Exception ex)
+        {
+            _ctx.Audit.Write("pair.error", p.DeviceId, ex.GetType().Name);
+            _phase = Phase.Anonymous;
+            SendError(ErrorCodes.Internal, "Pairing failed on the PC. Try again.", requestId);
+            await CloseAsync(null);
+        }
     }
 
     private void HandleHello(Envelope env)

@@ -62,8 +62,9 @@
                 <StackPanel>
                     <TextBlock Text="About" Style="{StaticResource H2}" Margin="0,0,0,10"/>
                     <TextBlock Text="Taveloom" FontWeight="SemiBold"/>
-                    <TextBlock Text="{Binding Version, StringFormat=Version {0} (pre-release)}" Style="{StaticResource Muted}"/>
-                    <TextBlock Text="Developed by EFEDEV · MIT License" Style="{StaticResource Muted}" Margin="0,2,0,10"/>
+                    <TextBlock Text="{Binding Version, StringFormat=Version {0}}" Style="{StaticResource Muted}"/>
+                    <TextBlock Text="Taveloom by Tavrynt Studios · MIT License" Style="{StaticResource Muted}" Margin="0,2,0,0"/>
+                    <TextBlock Text="Original copyright © 2026 EFEDEV (see NOTICE.md)" Style="{StaticResource Muted}" Margin="0,2,0,10"/>
                     <TextBlock Text="Your workspace, at your fingertips." Style="{StaticResource Muted}"/>
                     <TextBlock Text="{Binding DataDir, StringFormat=Data folder: {0}}" Style="{StaticResource Muted}" Margin="0,10,0,6"/>
                     <Button Content="Open data folder" Command="{Binding OpenDataFolderCommand}" HorizontalAlignment="Left"/>

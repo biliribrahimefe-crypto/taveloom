@@ -82,6 +82,96 @@ public class ConnectionTests
         Assert.Empty(t.Host.Devices.List());
     }
 
+    /// <summary>Regression: the 15 s unauthenticated-connection timeout used to cancel the human approval step.</summary>
+    [Fact]
+    public async Task SlowHumanApprovalOutlivesTheAuthTimeout()
+    {
+        await using var t = await TestHost.StartAsync(autoApprove: false, authTimeout: TimeSpan.FromMilliseconds(300));
+        t.Host.Pairing.ApprovalRequested += p => _ = Task.Run(async () => { await Task.Delay(1000); t.Host.Pairing.Resolve(p.RequestId, true); });
+        var qr = t.Host.CreatePairing().Qr;
+        await using var c = await TestClient.ConnectAsync(t.Host.Port, qr.Fingerprint);
+        await c.SendAsync(MessageTypes.PairRequest, new PairRequestPayload(qr.Token, t.NewDeviceId(), "Slow"));
+        await c.ExpectAsync(MessageTypes.PairPending);
+        await c.ExpectAsync(MessageTypes.PairApproved, 5000);
+        Assert.Single(t.Host.Devices.List());
+    }
+
+    /// <summary>
+    /// Regression for the physical-device failure: while the host waited for a human to click Allow it stopped reading the socket,
+    /// so it never answered protocol-level pings; a client that drops unresponsive peers (Android: pingInterval) closed the
+    /// connection after ~20 s. This client does the same with a short interval.
+    /// </summary>
+    [Fact]
+    public async Task HostAnswersPingsWhileWaitingForHumanApproval()
+    {
+        await using var t = await TestHost.StartAsync(autoApprove: false);
+        t.Host.Pairing.ApprovalRequested += p => _ = Task.Run(async () => { await Task.Delay(4000); t.Host.Pairing.Resolve(p.RequestId, true); });
+        var qr = t.Host.CreatePairing().Qr;
+        await using var c = await TestClient.ConnectAsync(t.Host.Port, qr.Fingerprint, keepAlive: TimeSpan.FromMilliseconds(700));
+        await c.SendAsync(MessageTypes.PairRequest, new PairRequestPayload(qr.Token, t.NewDeviceId(), "Slow phone"));
+        await c.ExpectAsync(MessageTypes.PairPending);
+        await c.ExpectAsync(MessageTypes.PairApproved, 10000);
+        Assert.Single(t.Host.Devices.List());
+    }
+
+    /// <summary>While approval is pending the connection must not become a back door: nothing but ping is accepted.</summary>
+    [Fact]
+    public async Task OnlyPingIsAcceptedWhileApprovalIsPending()
+    {
+        await using var t = await TestHost.StartAsync(autoApprove: false);
+        var release = new TaskCompletionSource();
+        t.Host.Pairing.ApprovalRequested += p => _ = Task.Run(async () => { await release.Task; t.Host.Pairing.Resolve(p.RequestId, false); });
+        var qr = t.Host.CreatePairing().Qr;
+        await using var c = await TestClient.ConnectAsync(t.Host.Port, qr.Fingerprint);
+        await c.SendAsync(MessageTypes.PairRequest, new PairRequestPayload(qr.Token, t.NewDeviceId(), "P"));
+        await c.ExpectAsync(MessageTypes.PairPending);
+
+        await c.SendAsync(MessageTypes.ActionInvoke, new ActionInvokePayload("anything"), "a1");
+        Assert.Equal(ErrorCodes.Unauthenticated, TestClient.Read<ErrorPayload>(await c.ExpectAsync(MessageTypes.Error)).Code);
+        await c.SendAsync(MessageTypes.PairRequest, new PairRequestPayload(qr.Token, t.NewDeviceId(), "Second"));
+        Assert.Equal(ErrorCodes.Unauthenticated, TestClient.Read<ErrorPayload>(await c.ExpectAsync(MessageTypes.Error)).Code);
+        await c.SendRawAsync(Envelope.Empty(MessageTypes.Ping, "p1").ToUtf8());
+        Assert.Equal("p1", (await c.ExpectAsync(MessageTypes.Pong)).Id);
+        Assert.Empty(t.Host.Devices.List());
+
+        release.SetResult();                                              // Deny
+        await c.ExpectAsync(MessageTypes.PairRejected);
+        Assert.True(await c.WaitClosedAsync());
+        Assert.Empty(t.Host.Devices.List());
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("Phone\u202Eevil")]   // bidi override could disguise the text in the approval dialog
+    [InlineData("tab\there")]
+    [InlineData("line\nbreak")]
+    public async Task UntrustedDeviceNamesAreValidatedBeforeAnyPrompt(string name)
+    {
+        await using var t = await TestHost.StartAsync(autoApprove: false);
+        var prompts = 0;
+        t.Host.Pairing.ApprovalRequested += p => { prompts++; t.Host.Pairing.Resolve(p.RequestId, false); };
+        var qr = t.Host.CreatePairing().Qr;
+        await using var c = await TestClient.ConnectAsync(t.Host.Port, qr.Fingerprint);
+        await c.SendAsync(MessageTypes.PairRequest, new PairRequestPayload(qr.Token, t.NewDeviceId(), name));
+        var e = await c.ReceiveAsync();
+        Assert.Equal(ErrorCodes.InvalidMessage, TestClient.Read<ErrorPayload>(e!).Code);
+        Assert.Equal(0, prompts);
+    }
+
+    [Fact]
+    public async Task OverlongDeviceNameIsRejectedWithoutPrompt()
+    {
+        await using var t = await TestHost.StartAsync(autoApprove: false);
+        var prompts = 0;
+        t.Host.Pairing.ApprovalRequested += _ => prompts++;
+        var qr = t.Host.CreatePairing().Qr;
+        await using var c = await TestClient.ConnectAsync(t.Host.Port, qr.Fingerprint);
+        await c.SendAsync(MessageTypes.PairRequest, new PairRequestPayload(qr.Token, t.NewDeviceId(), new string('A', 41)));
+        Assert.Equal(ErrorCodes.InvalidMessage, TestClient.Read<ErrorPayload>((await c.ReceiveAsync())!).Code);
+        Assert.Equal(0, prompts);
+    }
+
     [Fact]
     public async Task PairingWithNobodyToApproveIsRefused()
     {
@@ -233,6 +323,23 @@ public class ConnectionTests
         Assert.Equal(ErrorCodes.DeviceRevoked, TestClient.Read<ErrorPayload>(await c2.ExpectAsync(MessageTypes.Error)).Code);
         Assert.Null(t.Host.Devices.GetCredential(id));
         Assert.NotNull(cred);
+    }
+
+    /// <summary>A phone that was revoked can pair again with the same device id and then authenticates normally.</summary>
+    [Fact]
+    public async Task RevokedDeviceCanPairAgain()
+    {
+        await using var t = await TestHost.StartAsync();
+        var (c, id, oldCred) = await t.PairAsync(); await c.DisposeAsync();
+        t.Host.Devices.Revoke(id);
+
+        var qr = t.Host.CreatePairing().Qr;
+        await using var again = await TestClient.ConnectAsync(t.Host.Port, qr.Fingerprint);
+        await again.SendAsync(MessageTypes.PairRequest, new PairRequestPayload(qr.Token, id, "Same phone"));
+        var cred = System.Buffers.Text.Base64Url.DecodeFromChars(TestClient.Read<PairApprovedPayload>(await again.ExpectAsync(MessageTypes.PairApproved)).Credential);
+        Assert.NotEqual(oldCred, cred);                                   // a fresh credential; the revoked one stays dead
+        Assert.False(t.Host.Devices.List().Single().Revoked);
+        await using var login = await t.LoginAsync(id, cred);
     }
 
     [Fact]
@@ -500,6 +607,17 @@ public class PersistenceTests
         Assert.True(ws.Delete(copy.Id)); Assert.False(ws.Delete(copy.Id));
         Assert.NotEmpty(ws.Save(dev with { Name = "" }));          // invalid edits are refused, nothing is overwritten
         Assert.Equal("Development", ws.Get(dev.Id)!.Name);
+    }
+
+    [Fact]
+    public async Task AuditLogIsBoundedByPrune()
+    {
+        await using var t = await TestHost.StartAsync();
+        for (var i = 0; i < 2600; i++) t.Host.Audit.Write("test.event", null, i.ToString());
+        t.Host.Audit.Prune();
+        var left = t.Host.Audit.Recent(10000);
+        Assert.InRange(left.Count, 1900, 2001);
+        Assert.Equal("2599", left[0].Detail);                              // newest entry kept
     }
 
     [Fact]

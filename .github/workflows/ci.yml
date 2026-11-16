@@ -33,21 +33,35 @@ jobs:
 
   android:
     name: Flutter analyze and test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: apps/android
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
       - uses: subosito/flutter-action@v2
         with:
+          flutter-version: 3.47.9
           channel: stable
           cache: true
       - name: Generate platform folder if it is not committed
         run: |
-          if [ ! -d android ]; then flutter create --platforms=android --org dev.efedev --project-name taveloom . ; fi
+          if [ ! -d android ]; then flutter create --platforms=android --org com.tavrynt --project-name taveloom . ; fi
       - run: flutter pub get
       - name: Verify formatting
         run: dart format --output=none --set-exit-if-changed lib test
       - run: flutter analyze
       - run: flutter test
+      - name: Build APK (debug-signed TEST build; explicit CI-only opt-in, no release key exists in CI)
+        run: flutter build apk --release
+        env:
+          TAVELOOM_ALLOW_DEBUG_SIGNING: "1"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: taveloom-android-apk
+          path: apps/android/build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 14

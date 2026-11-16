@@ -107,9 +107,11 @@ public sealed class TestClient : IAsyncDisposable
     public WebSocketState State => _ws.State;
 
     /// <summary>Connects the way the Android app must: trust only the certificate whose SHA-256 matches the pinned fingerprint.</summary>
-    public static async Task<TestClient> ConnectAsync(int port, string pinnedFingerprint)
+    /// <param name="keepAlive">Protocol-level ping interval AND pong timeout, like the Android client's pingInterval: a peer that stops answering pings is dropped.</param>
+    public static async Task<TestClient> ConnectAsync(int port, string pinnedFingerprint, TimeSpan? keepAlive = null)
     {
         var ws = new ClientWebSocket();
+        if (keepAlive is { } ka) { ws.Options.KeepAliveInterval = ka; ws.Options.KeepAliveTimeout = ka; }
         ws.Options.RemoteCertificateValidationCallback = (_, cert, _, _) =>
             cert is not null && Convert.ToHexString(SHA256.HashData(cert.GetRawCertData())) == pinnedFingerprint.ToUpperInvariant();
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));

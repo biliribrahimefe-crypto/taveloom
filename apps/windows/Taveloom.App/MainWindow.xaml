@@ -32,7 +32,7 @@
                         <Ellipse Width="8" Height="8" Fill="{Binding Dashboard.HostStatusKind, Converter={StaticResource StatusBrush}}" VerticalAlignment="Center"/>
                         <TextBlock Text="{Binding Dashboard.DeviceSummary}" Style="{StaticResource Muted}" Margin="8,0,0,0" FontSize="12"/>
                     </StackPanel>
-                    <TextBlock Text="{Binding Settings.Version, StringFormat=v{0}  ·  EFEDEV}" Style="{StaticResource Muted}" FontSize="11" Margin="0,6,0,0"/>
+                    <TextBlock Text="{Binding Settings.Version, StringFormat=v{0}  ·  Tavrynt Studios}" Style="{StaticResource Muted}" FontSize="11" Margin="0,6,0,0"/>
                 </StackPanel>
                 <StackPanel>
                     <RadioButton Style="{StaticResource NavItem}" Tag="&#xE80F;" Content="Dashboard" GroupName="nav"

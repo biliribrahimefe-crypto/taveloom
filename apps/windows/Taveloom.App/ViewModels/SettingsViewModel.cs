@@ -24,7 +24,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private string? _portError;
     [ObservableProperty] private bool _autoSwitch;
 
-    public string Version { get; } = Assembly.GetExecutingAssembly().GetName().Version is { } v ? $"{v.Major}.{v.Minor}.{v.Build}" : "0.1.0";
+    public string Version { get; } = Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion.Split('+')[0] ?? "unknown";
     public string FingerprintFull => Host.Fingerprint;
     public string DataDir { get; }
     public bool RestartNeeded => !_loading && (LanExposure != _runningLan || (int.TryParse(PortText, out var p) && p != _runningPort));
