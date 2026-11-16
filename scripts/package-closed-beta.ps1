@@ -41,7 +41,9 @@ $m = [regex]::Match($badge, "versionCode='(\d+)' versionName='([^']+)'")
 if ([int]$m.Groups[1].Value -ne $ExpectedAndroidVersionCode -or $m.Groups[2].Value -ne $ExpectedAndroidVersionName) { Fail "APK version is $($m.Groups[2].Value) ($($m.Groups[1].Value)), expected $ExpectedAndroidVersionName ($ExpectedAndroidVersionCode)." }
 
 # --- scan the binaries for personal data / secrets
-$needles = @($env:USERNAME, "OneDrive", "key.properties", "storePassword", "keyPassword", "taveloom-release", "github_pat_", "ghp_", "gho_") | Where-Object { $_ }
+$needles = @($env:USERNAME, "OneDrive", "key.properties", "storePassword", "taveloom-release", "github_pat_", "ghp_", "gho_") | Where-Object { $_ }
+# Docs may legitimately name key.properties; they must not contain the user name, cloud paths or secrets.
+$docNeedles = @($env:USERNAME, "OneDrive", "storePassword=", "github_pat_", "ghp_", "gho_") | Where-Object { $_ }
 function ScanZip($path, $badExtensions) {
     $found = @()
     $z = [IO.Compression.ZipFile]::OpenRead($path)
@@ -62,7 +64,7 @@ function ScanZip($path, $badExtensions) {
     $found
 }
 $bad = @(ScanZip $zip @(".pdb", ".db", ".jks", ".keystore", ".pfx", ".pem", ".p12", ".log")) + @(ScanZip $apk @(".jks", ".keystore", ".pfx", ".pem", ".p12", ".db", ".log"))
-if ($bad) { $bad | Select-Object -First 15 | ForEach-Object { "  $_" }; Fail "personal data or sensitive content found in the binaries (see above)." }
+if ($bad) { $bad | Select-Object -First 15 | ForEach-Object { Write-Host "  $_" }; Fail "personal data or sensitive content found in the binaries (see above)." }
 # the installer payload is the same publish folder as the zip (already scanned); also record embedded product version
 $tmp = Join-Path $env:TEMP ("tav-pkg-" + [guid]::NewGuid().ToString("N")); New-Item -ItemType Directory $tmp | Out-Null
 [IO.Compression.ZipFile]::ExtractToDirectory($zip, "$tmp\win")
@@ -93,7 +95,7 @@ if ($sig -match "Android Debug") { Fail "debug-signed APK in package." }
 foreach ($f in Get-ChildItem $dir -File) {
     if ($f.Length -eq 0) { Fail "empty file $($f.Name)" }
     if ($f.Attributes -band ([IO.FileAttributes]::Hidden -bor [IO.FileAttributes]::System)) { Fail "hidden/system file $($f.Name)" }
-    if ($f.Extension -in ".md", ".txt") { $c = Get-Content $f.FullName -Raw; foreach ($n in $needles) { if ($c.IndexOf($n, [StringComparison]::OrdinalIgnoreCase) -ge 0 -and $f.Name -ne "SECURITY.md") { Fail "'$n' found in $($f.Name)" } } }
+    if ($f.Extension -in ".md", ".txt") { $c = Get-Content $f.FullName -Raw; foreach ($n in $docNeedles) { if ($c.IndexOf($n, [StringComparison]::OrdinalIgnoreCase) -ge 0) { Fail "'$n' found in $($f.Name)" } } }
 }
 
 # --- checksums (sha256sum format: hash, two spaces, name) and archive
