@@ -66,8 +66,9 @@ exercise the camera, the Android runtime, Wi-Fi, battery optimisation or the Win
 
 ### Release signing
 
-Create `apps/android/android/key.properties` (git-ignored) with `storeFile`, `storePassword`, `keyAlias`, `keyPassword`.
-Without it, `flutter build apk --release` signs with the debug key (fine for testing, not for distribution).
+The release key and its `key.properties` live **outside the repository** (`%USERPROFILE%\.taveloom\signing\key.properties`). A release
+build without valid signing fails; it never falls back to the debug key (GitHub Actions has an explicit CI-only opt-in for test APKs).
+Details, key creation and verification: [docs/release/android-signing.md](../release/android-signing.md).
 
 ### R8 shrinking
 

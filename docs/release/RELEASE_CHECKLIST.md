@@ -13,7 +13,7 @@ Run in order. Do not tag or publish until every box is ticked or the exception i
 **Artifacts** (build from the committed release commit)
 - [ ] `scripts/build-installer.ps1` → installer; zip of `artifacts/windows-x64`.
 - [ ] Installer lifecycle test (`scripts/test-installer-lifecycle.ps1` with test installers).
-- [ ] Android: release key present (`docs/release/android-signing.md`); `flutter build apk --release` and `appbundle`; `apksigner verify --print-certs` shows the release certificate, not "Android Debug".
+- [ ] Android: release key and `%USERPROFILE%\.taveloom\signing\key.properties` present (`docs/release/android-signing.md`); `flutter build apk --release` and `appbundle`; `scripts/verify-android-release.ps1` confirms the release certificate fingerprint and package id (not "Android Debug").
 - [ ] `SHA256SUMS.txt` generated from the final files; hashes pasted in the release notes.
 
 **Device test** (physical phone, see `docs/development/building.md`)

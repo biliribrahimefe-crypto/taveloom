@@ -1,4 +1,5 @@
-# Creates the Android RELEASE signing key and the git-ignored android/key.properties that Gradle reads.
+# Creates the Android RELEASE signing key and the signing configuration that Gradle reads from OUTSIDE the repository:
+#   <your home>\.taveloom\signing\key.properties
 # Run this ONCE, on a trusted machine. You will be prompted for passwords; nothing is printed or committed.
 #
 #   The keystore is the identity of the app. If you lose it or its password, existing installs can no longer be updated.
@@ -6,10 +7,13 @@
 param(
     [string]$KeystorePath = (Join-Path $HOME "taveloom-release.jks"),
     [string]$Alias = "taveloom",
-    [string]$AndroidDir = (Join-Path (Split-Path $PSScriptRoot -Parent) "apps\android\android")
+    [string]$SigningDir = (Join-Path $HOME ".taveloom\signing")
 )
 $ErrorActionPreference = "Stop"
+$props = Join-Path $SigningDir "key.properties"
 if (Test-Path $KeystorePath) { throw "$KeystorePath already exists. Refusing to overwrite a signing key." }
+if (Test-Path $props) { throw "$props already exists. Refusing to overwrite a signing configuration." }
+New-Item -ItemType Directory -Force $SigningDir | Out-Null
 $keytool = if ($env:JAVA_HOME) { Join-Path $env:JAVA_HOME "bin\keytool.exe" } else { "keytool" }
 $pw = Read-Host "Keystore/key password (min 8 chars)" -AsSecureString
 $plain = [Runtime.InteropServices.Marshal]::PtrToStringBSTR([Runtime.InteropServices.Marshal]::SecureStringToBSTR($pw))
@@ -27,8 +31,8 @@ storeFile=$($KeystorePath -replace '\\','/')
 storePassword=$plain
 keyAlias=$Alias
 keyPassword=$plain
-"@ | Set-Content (Join-Path $AndroidDir "key.properties") -Encoding ascii
+"@ | Set-Content $props -Encoding ascii
 $plain = $null
 # Gradle needs the passwords in key.properties; limit the file (and the keystore) to the current user.
-foreach ($f in @((Join-Path $AndroidDir "key.properties"), $KeystorePath)) { icacls $f /inheritance:r /grant:r "$($env:USERNAME):(R,W)" | Out-Null }
-"Created $KeystorePath and $AndroidDir\key.properties (git-ignored). Back up the keystore NOW."
+foreach ($f in @($props, $KeystorePath)) { icacls $f /inheritance:r /grant:r "$($env:USERNAME):(R,W)" | Out-Null }
+"Created $KeystorePath and $props (outside the repository). Back up the keystore NOW."

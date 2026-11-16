@@ -33,9 +33,9 @@ only on a trusted machine and never paste it anywhere.
 
 ## Key custody rules
 
-1. Create the key once, on a trusted machine, with `scripts/new-android-keystore.ps1` (the script prompts for the password; nobody else sees it).
+1. Create the key once, on a trusted machine, with `scripts/new-android-keystore.ps1` (the script prompts for the password; nobody else sees it). The signing config lives in `%USERPROFILE%\.taveloom\signing`, outside the repository and outside any cloud-synced folder.
 2. Keep **two backups** of the `.jks` (offline USB + encrypted cloud/password-manager attachment) and the password in a password manager.
-3. Never commit, paste or share the keystore, `key.properties` or passwords (they are git-ignored; check `git status` before every commit).
+3. Never commit, paste or share the keystore, `key.properties` or passwords (they are outside the repository; the repository also git-ignores `key.properties` as a safety net).
 4. Record the **certificate SHA-256** (`apksigner verify --print-certs`) in release notes so people can verify downloads. It is public information.
 5. Rehearse recovery once: restore the backup on another folder and run `keytool -list -keystore <file>` to confirm it opens.
 6. If the key may have leaked: stop distributing; with Play App Signing request an upload-key reset; for direct APKs you must create a new key

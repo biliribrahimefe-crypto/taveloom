@@ -17,6 +17,12 @@ See [docs/release/RELEASE_NOTES_0.2.0-beta.md](docs/release/RELEASE_NOTES_0.2.0-
 - The keystore script passes the password to `keytool` through an environment variable (not the command line) and restricts
   `key.properties` to the current user.
 
+### Security
+- Android release signing now reads `<home>/.taveloom/signing/key.properties` (outside the repository and cloud-synced folders). Release builds
+  **fail** when signing is missing or invalid and never fall back to debug signing; GitHub Actions uses an explicit CI-only opt-in
+  (`TAVELOOM_ALLOW_DEBUG_SIGNING=1` together with `CI=true`) for test APKs. New `scripts/test-android-signing-gate.ps1` and
+  `scripts/verify-android-release.ps1`.
+
 ### Release engineering
 - Windows per-user installer (Inno Setup) with upgrade-in-place and optional data removal; install/upgrade/uninstall lifecycle test script.
 - Android: backups and cleartext traffic disabled, app label fixed, optional release signing, `scripts/new-android-keystore.ps1`,
