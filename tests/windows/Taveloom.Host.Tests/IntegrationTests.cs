@@ -96,6 +96,50 @@ public class ConnectionTests
         Assert.Single(t.Host.Devices.List());
     }
 
+    /// <summary>
+    /// Regression for the physical-device failure: while the host waited for a human to click Allow it stopped reading the socket,
+    /// so it never answered protocol-level pings; a client that drops unresponsive peers (Android: pingInterval) closed the
+    /// connection after ~20 s. This client does the same with a short interval.
+    /// </summary>
+    [Fact]
+    public async Task HostAnswersPingsWhileWaitingForHumanApproval()
+    {
+        await using var t = await TestHost.StartAsync(autoApprove: false);
+        t.Host.Pairing.ApprovalRequested += p => _ = Task.Run(async () => { await Task.Delay(4000); t.Host.Pairing.Resolve(p.RequestId, true); });
+        var qr = t.Host.CreatePairing().Qr;
+        await using var c = await TestClient.ConnectAsync(t.Host.Port, qr.Fingerprint, keepAlive: TimeSpan.FromMilliseconds(700));
+        await c.SendAsync(MessageTypes.PairRequest, new PairRequestPayload(qr.Token, t.NewDeviceId(), "Slow phone"));
+        await c.ExpectAsync(MessageTypes.PairPending);
+        await c.ExpectAsync(MessageTypes.PairApproved, 10000);
+        Assert.Single(t.Host.Devices.List());
+    }
+
+    /// <summary>While approval is pending the connection must not become a back door: nothing but ping is accepted.</summary>
+    [Fact]
+    public async Task OnlyPingIsAcceptedWhileApprovalIsPending()
+    {
+        await using var t = await TestHost.StartAsync(autoApprove: false);
+        var release = new TaskCompletionSource();
+        t.Host.Pairing.ApprovalRequested += p => _ = Task.Run(async () => { await release.Task; t.Host.Pairing.Resolve(p.RequestId, false); });
+        var qr = t.Host.CreatePairing().Qr;
+        await using var c = await TestClient.ConnectAsync(t.Host.Port, qr.Fingerprint);
+        await c.SendAsync(MessageTypes.PairRequest, new PairRequestPayload(qr.Token, t.NewDeviceId(), "P"));
+        await c.ExpectAsync(MessageTypes.PairPending);
+
+        await c.SendAsync(MessageTypes.ActionInvoke, new ActionInvokePayload("anything"), "a1");
+        Assert.Equal(ErrorCodes.Unauthenticated, TestClient.Read<ErrorPayload>(await c.ExpectAsync(MessageTypes.Error)).Code);
+        await c.SendAsync(MessageTypes.PairRequest, new PairRequestPayload(qr.Token, t.NewDeviceId(), "Second"));
+        Assert.Equal(ErrorCodes.Unauthenticated, TestClient.Read<ErrorPayload>(await c.ExpectAsync(MessageTypes.Error)).Code);
+        await c.SendRawAsync(Envelope.Empty(MessageTypes.Ping, "p1").ToUtf8());
+        Assert.Equal("p1", (await c.ExpectAsync(MessageTypes.Pong)).Id);
+        Assert.Empty(t.Host.Devices.List());
+
+        release.SetResult();                                              // Deny
+        await c.ExpectAsync(MessageTypes.PairRejected);
+        Assert.True(await c.WaitClosedAsync());
+        Assert.Empty(t.Host.Devices.List());
+    }
+
     [Fact]
     public async Task PairingWithNobodyToApproveIsRefused()
     {

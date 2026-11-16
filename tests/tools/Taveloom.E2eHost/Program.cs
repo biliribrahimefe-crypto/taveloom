@@ -1,6 +1,6 @@
 // Test harness: a real TaveloomHost on loopback with fake input/audio and auto-approved pairing, so the Android (Dart)
 // client can be tested against the real server without a phone. Not shipped.
-// Usage: Taveloom.E2eHost <flagDir>   Creates "revoke.flag" in <flagDir> to revoke all devices; "quit.flag" to exit.
+// Usage: Taveloom.E2eHost <flagDir> [approveDelayMs]   Pairing is approved after the delay (a human clicking Allow). Creates "revoke.flag" in <flagDir> to revoke all devices; "quit.flag" to exit.
 using Taveloom.Host;
 using Taveloom.Host.Actions;
 using Taveloom.Host.Native;
@@ -8,6 +8,7 @@ using Taveloom.Host.Workspaces;
 
 var flagDir = args.Length > 0 ? args[0] : Path.GetTempPath();
 Directory.CreateDirectory(flagDir);
+var approveDelayMs = args.Length > 1 ? int.Parse(args[1]) : 0;
 var dataDir = Path.Combine(Path.GetTempPath(), "taveloom-e2e-" + Guid.NewGuid().ToString("N"));
 
 await using var host = new TaveloomHost(new HostOptions
@@ -20,7 +21,12 @@ await using var host = new TaveloomHost(new HostOptions
     Foreground = new IdleForeground(),
     ScreenshotDir = Path.Combine(dataDir, "shots"),
 });
-host.Pairing.ApprovalRequested += p => { Console.WriteLine($"APPROVE {p.DeviceName}"); host.Pairing.Resolve(p.RequestId, true); };
+host.Pairing.ApprovalRequested += p => _ = Task.Run(async () =>
+{
+    await Task.Delay(approveDelayMs);
+    Console.WriteLine($"APPROVE {p.DeviceName} after {approveDelayMs} ms");
+    host.Pairing.Resolve(p.RequestId, true);
+});
 host.Sessions.Changed += () => Console.WriteLine($"SESSIONS {host.Sessions.AuthenticatedCount}");
 await host.StartAsync();
 Console.WriteLine("PAIR_URI=" + host.CreatePairing().Qr.ToUri());

@@ -6,6 +6,14 @@ All notable changes are recorded here. The format follows [Keep a Changelog](htt
 ## [Unreleased]
 
 ### Fixed
+- **Pairing failed when the user waited ~20 s before clicking Allow** (found on a physical phone: "The connection closed before
+  pairing finished"). Root cause: the host awaited the human approval *on the socket receive loop*, so it stopped reading the
+  connection and never answered protocol-level WebSocket pings; the Android client (`pingInterval` 10 s) dropped the unresponsive
+  peer after the second missed pong. The approval now runs as a background task while the receive loop keeps answering pings;
+  while approval is pending only `ping` is accepted. Regression tests: `HostAnswersPingsWhileWaitingForHumanApproval`,
+  `OnlyPingIsAcceptedWhileApprovalIsPending`, plus the real Dart client against the real host with a 25 s approval
+  (reproduced the failure before the fix). The approval time limit (60 s) and the explicit Allow requirement are unchanged.
+- Host: a drained send queue no longer cuts the receive loop short, so the peer can read the final frames (e.g. "declined").
 - Windows host: pairing approval was cancelled by the 15 s unauthenticated-connection timeout, so a user who clicked Allow after
   15 seconds saw the pairing rejected. The timeout now stops once a human approval is pending (the 60 s approval limit still applies).
 - Android client: restarting the connection ("Reconnect now") left the previous session alive beside the new one (two live sessions
