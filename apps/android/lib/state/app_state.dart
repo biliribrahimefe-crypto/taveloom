@@ -287,6 +287,22 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  /// The app came back to the foreground. Skip any backoff wait, or verify that a "connected" socket is still alive.
+  void onResumed() {
+    if (host == null) return;
+    switch (link) {
+      case LinkState.connected:
+        _client.probe();
+      case LinkState.reconnecting || LinkState.disconnected:
+        retryNow();
+      case LinkState.connecting ||
+          LinkState.revoked ||
+          LinkState.authFailed ||
+          LinkState.untrusted:
+        break; // in progress, or needs the user to pair again
+    }
+  }
+
   void retryNow() {
     if (host != null) _client.connect(host!);
   }

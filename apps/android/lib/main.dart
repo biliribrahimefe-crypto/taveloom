@@ -18,17 +18,24 @@ class TaveloomApp extends StatefulWidget {
   State<TaveloomApp> createState() => _TaveloomAppState();
 }
 
-class _TaveloomAppState extends State<TaveloomApp> {
+class _TaveloomAppState extends State<TaveloomApp> with WidgetsBindingObserver {
   late final AppState _state = widget.state ?? AppState();
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _state.init();
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _state.onResumed();
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _state.dispose();
     super.dispose();
   }

@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
@@ -29,12 +31,27 @@ android {
         versionName = flutter.versionName
     }
 
+    // Release signing comes from android/key.properties (git-ignored) when present; otherwise the debug key is used so
+    // `flutter build apk --release` still works for local testing. Never commit key.properties or a keystore.
+    val keyProps = Properties().apply {
+        val f = rootProject.file("key.properties")
+        if (f.exists()) f.inputStream().use { load(it) }
+    }
+    signingConfigs {
+        if (keyProps.isNotEmpty()) {
+            create("release") {
+                keyAlias = keyProps.getProperty("keyAlias")
+                keyPassword = keyProps.getProperty("keyPassword")
+                storeFile = file(keyProps.getProperty("storeFile"))
+                storePassword = keyProps.getProperty("storePassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
-            // R8 stripped parts of the ML Kit / CameraX stack used by the QR scanner; the app is small, so ship unshrunk.
+            signingConfig = signingConfigs.getByName(if (keyProps.isNotEmpty()) "release" else "debug")
+            // TEMPORARY, unconfirmed: R8 is suspected of breaking the ML Kit / CameraX QR scanner. See docs/development/building.md.
             isMinifyEnabled = false
             isShrinkResources = false
         }

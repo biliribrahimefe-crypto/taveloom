@@ -173,6 +173,14 @@ public class NetworkGuardTests
     [InlineData("2001:4860:4860::8888", false)]
     public void Classifies(string ip, bool local) => Assert.Equal(local, NetworkGuard.IsLocalNetwork(IPAddress.Parse(ip)));
 
+    [Fact]
+    public void QrAddressesPreferInterfacesWithAGateway()
+    {
+        Assert.Equal(["192.168.1.3"], NetworkGuard.PreferGateway([("172.23.224.1", false), ("192.168.1.3", true), ("192.168.192.1", false)]));
+        Assert.Equal(["10.0.0.5", "172.23.224.1"], NetworkGuard.PreferGateway([("10.0.0.5", false), ("172.23.224.1", false)]));   // none routed: keep all
+        Assert.Empty(NetworkGuard.PreferGateway([]));
+    }
+
     [Fact] public void NullIsNotLocal() => Assert.False(NetworkGuard.IsLocalNetwork(null));
 }
 

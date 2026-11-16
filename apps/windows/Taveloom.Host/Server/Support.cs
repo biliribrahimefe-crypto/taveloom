@@ -27,13 +27,31 @@ public static class NetworkGuard
         return false;
     }
 
-    /// <summary>Private IPv4 addresses of this machine, for the pairing QR code.</summary>
-    public static List<string> LocalAddresses() =>
-        NetworkInterface.GetAllNetworkInterfaces()
-            .Where(n => n.OperationalStatus == OperationalStatus.Up && n.NetworkInterfaceType is not NetworkInterfaceType.Loopback)
-            .SelectMany(n => n.GetIPProperties().UnicastAddresses.Select(a => a.Address))
-            .Where(a => a.AddressFamily == AddressFamily.InterNetwork && IsLocalNetwork(a) && !a.ToString().StartsWith("169.254"))
-            .Select(a => a.ToString()).Distinct().ToList();
+    /// <summary>
+    /// Private IPv4 addresses a phone could reach, for the pairing QR code. Interfaces with a default gateway (Wi-Fi, Ethernet)
+    /// are preferred; virtual adapters (Hyper-V, WSL, VPN host-only) usually have none and only produce slow, useless attempts.
+    /// </summary>
+    public static List<string> LocalAddresses()
+    {
+        var found = new List<(string Address, bool HasGateway)>();
+        foreach (var n in NetworkInterface.GetAllNetworkInterfaces())
+        {
+            if (n.OperationalStatus != OperationalStatus.Up || n.NetworkInterfaceType is NetworkInterfaceType.Loopback) continue;
+            var props = n.GetIPProperties();
+            var gateway = props.GatewayAddresses.Any(g => g.Address.AddressFamily == AddressFamily.InterNetwork && !g.Address.Equals(IPAddress.Any));
+            foreach (var u in props.UnicastAddresses)
+                if (u.Address.AddressFamily == AddressFamily.InterNetwork && IsLocalNetwork(u.Address) && !u.Address.ToString().StartsWith("169.254", StringComparison.Ordinal))
+                    found.Add((u.Address.ToString(), gateway));
+        }
+        return PreferGateway(found);
+    }
+
+    public static List<string> PreferGateway(IEnumerable<(string Address, bool HasGateway)> found)
+    {
+        var all = found.ToList();
+        var routed = all.Where(a => a.HasGateway).Select(a => a.Address).Distinct().ToList();
+        return routed.Count > 0 ? routed : all.Select(a => a.Address).Distinct().ToList();
+    }
 }
 
 /// <summary>Samples live values. Unavailable values are null rather than invented.</summary>

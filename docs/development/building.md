@@ -53,7 +53,34 @@ flutter build apk --release
 
 `test/protocol_test.dart` asserts the same HMAC vector as the C# tests, so the two implementations stay compatible.
 
-### Verifying end to end (still to be done)
+### End to end against the real host (no phone)
+
+Runs the real Android client code against a real Windows host on loopback (fake input/audio, auto-approved pairing):
+
+```powershell
+scripts/e2e-android-vs-host.ps1 -AndroidDir C:\dev	av-android   # ASCII-only path, see gotchas below
+```
+
+This checks the protocol, TLS pinning, authentication, actions and reconnection logic of both sides together. It does **not**
+exercise the camera, the Android runtime, Wi-Fi, battery optimisation or the Windows firewall.
+
+### Release signing
+
+Create `apps/android/android/key.properties` (git-ignored) with `storeFile`, `storePassword`, `keyAlias`, `keyPassword`.
+Without it, `flutter build apk --release` signs with the debug key (fine for testing, not for distribution).
+
+### R8 shrinking is disabled (temporary workaround, not a confirmed fix)
+
+`android/app/build.gradle.kts` sets `isMinifyEnabled = false` / `isShrinkResources = false` for release builds. The reason: on the
+first device test the QR scanner reported "camera not available" even though the permission was granted. R8 code shrinking is a
+*known* way to break reflection-heavy libraries (ML Kit / CameraX behind `mobile_scanner`), so it was switched off as a hypothesis.
+**It has not been confirmed that this was the cause**; the scanner screen now prints the real error code so the true cause can be read.
+
+Trade-off: the APK is larger (about 68 MB instead of about 64 MB) and has no code obfuscation/shrinking. For an open-source app this
+costs little. Once the device test shows the scanner works, re-enable R8 on a test build and check the scanner again; if it still
+works, restore shrinking (with keep rules if needed) and delete this section.
+
+### Verifying on a real device (still to be done)
 
 1. Run Taveloom on Windows with LAN access on; allow the firewall prompt for private networks.
 2. Install the APK on a phone on the same Wi-Fi, scan the QR, click Allow.

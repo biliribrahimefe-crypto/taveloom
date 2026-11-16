@@ -60,6 +60,7 @@ public sealed class ClientSession
     private readonly Queue<string> _requestOrder = new();
     private Phase _phase = Phase.Anonymous;
     private string? _challengeNonce, _challengeDevice;
+    private CancellationTokenSource? _authTimer;
     private int _violations;
     private double _tokens = 20; private long _lastRefill = Environment.TickCount64;
 
@@ -87,6 +88,7 @@ public sealed class ClientSession
     public async Task RunAsync(CancellationToken serverStopping)
     {
         using var authTimer = new CancellationTokenSource(_ctx.AuthTimeout);
+        _authTimer = authTimer;
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(serverStopping, _life.Token, authTimer.Token);
         _ctx.Sessions.Add(this);
         var writer = WriteLoopAsync(cts.Token);
@@ -228,6 +230,7 @@ public sealed class ClientSession
         }
 
         Send(Envelope.Empty(MessageTypes.PairPending, env.Id));
+        _authTimer?.CancelAfter(Timeout.InfiniteTimeSpan); // a human is deciding; PairingService.ApprovalTimeout bounds the wait
         var approved = await _ctx.Pairing.RequestApprovalAsync(p.DeviceId, p.DeviceName, _remote, ct);
         if (!approved)
         {

@@ -43,6 +43,7 @@ class HostClient {
   final ValueNotifier<LinkState> link = ValueNotifier(LinkState.disconnected);
 
   WebSocket? _ws;
+  DateTime _lastRx = DateTime.now();
   StoredHost? _host;
   bool _stopped = true;
   int _generation = 0;
@@ -56,36 +57,54 @@ class HostClient {
   static String _fingerprint(Uint8List der) =>
       sha256.convert(der).toString().toUpperCase();
 
-  Future<WebSocket> _open(
-    List<String> hosts,
-    int port,
-    String fingerprint,
-  ) async {
-    Object? last;
+  /// Tries every address in the QR code at once and keeps the first that completes the pinned TLS handshake.
+  /// A handshake failure (wrong certificate) is reported in preference to plain unreachability.
+  Future<WebSocket> _open(List<String> hosts, int port, String fingerprint) {
+    final result = Completer<WebSocket>();
+    Object? handshake, last;
+    var pending = hosts.length;
     for (final h in hosts) {
-      final client =
-          HttpClient(context: SecurityContext(withTrustedRoots: false))
-            ..connectionTimeout = const Duration(seconds: 4)
-            ..badCertificateCallback =
-                (cert, host, p) =>
-                    _fingerprint(cert.der) == fingerprint.toUpperCase();
-      try {
-        final ws = await WebSocket.connect(
-          'wss://$h:$port/ws',
-          customClient: client,
-        ).timeout(const Duration(seconds: 6));
-        ws.pingInterval = const Duration(seconds: 10);
-        return ws;
-      } on HandshakeException catch (e) {
-        client.close(force: true);
-        last =
-            e; // fingerprint mismatch: keep trying other addresses, but remember why
-      } catch (e) {
-        client.close(force: true);
-        last = e;
-      }
+      unawaited(() async {
+        final client =
+            HttpClient(context: SecurityContext(withTrustedRoots: false))
+              ..connectionTimeout = const Duration(seconds: 4)
+              ..badCertificateCallback =
+                  (cert, host, p) =>
+                      _fingerprint(cert.der) == fingerprint.toUpperCase();
+        try {
+          final ws = await WebSocket.connect(
+            'wss://$h:$port/ws',
+            customClient: client,
+          ).timeout(const Duration(seconds: 6));
+          if (result.isCompleted) {
+            await ws.close();
+          } else {
+            ws.pingInterval = const Duration(seconds: 10);
+            result.complete(ws);
+          }
+        } on HandshakeException catch (e) {
+          client.close(force: true);
+          handshake = e;
+        } catch (e) {
+          client.close(force: true);
+          last = e;
+        } finally {
+          if (--pending == 0 && !result.isCompleted) {
+            result.completeError(
+              handshake ??
+                  last ??
+                  const SocketException('No host address reachable'),
+            );
+          }
+        }
+      }());
     }
-    throw last ?? const SocketException('No host address reachable');
+    if (hosts.isEmpty) {
+      result.completeError(
+        const SocketException('No host address in the pairing code'),
+      );
+    }
+    return result.future;
   }
 
   /// One-time pairing. Resolves with the stored credential after the user approves the device on Windows.
@@ -186,6 +205,9 @@ class HostClient {
 
   /// Starts (or restarts) the maintain-connection loop for a paired host.
   void connect(StoredHost host) {
+    _ws
+        ?.close()
+        .ignore(); // a restart must not leave the previous session running beside the new one
     _generation++;
     _stopped = false;
     _host = host;
@@ -200,6 +222,23 @@ class HostClient {
     _ws = null;
     await ws?.close();
     _setLink(LinkState.disconnected);
+  }
+
+  /// Called when the app returns to the foreground: the network may have changed while it slept.
+  /// Pings the host and drops the socket if nothing comes back, so the reconnect loop takes over immediately.
+  void probe() {
+    final ws = _ws;
+    if (!isConnected || ws == null) return;
+    final sentAt = DateTime.now();
+    try {
+      ws.add(Envelope(MessageTypes.ping).encode());
+    } catch (_) {
+      ws.close().ignore();
+      return;
+    }
+    Timer(const Duration(seconds: 4), () {
+      if (identical(_ws, ws) && _lastRx.isBefore(sentAt)) ws.close().ignore();
+    });
   }
 
   void _setLink(LinkState s) {
@@ -220,7 +259,10 @@ class HostClient {
         }
         _ws = ws;
         final end = await _session(ws, host, gen);
-        _ws = null;
+        if (identical(_ws, ws)) _ws = null;
+        if (_stopped || gen != _generation) {
+          return; // superseded by a newer connect()/disconnect()
+        }
         switch (end) {
           case _End.revoked:
             issue =
@@ -248,7 +290,9 @@ class HostClient {
         issue =
             'Cannot reach ${host.hostName}. Is it on and running Taveloom, on the same network?';
       }
-      if (_stopped || gen != _generation) return;
+      if (_stopped || gen != _generation) {
+        return;
+      }
       _setLink(LinkState.reconnecting);
       attempt++;
       await Future<void>.delayed(wait);
@@ -258,7 +302,6 @@ class HostClient {
   Future<_End> _session(WebSocket ws, StoredHost host, int gen) {
     final result = Completer<_End>();
     var authed = false;
-    var lastRx = DateTime.now();
     Timer? heartbeat;
 
     void finish(_End e) {
@@ -267,9 +310,17 @@ class HostClient {
       ws.close().ignore();
     }
 
+    void safeAdd(String text) {
+      try {
+        ws.add(text);
+      } catch (_) {
+        finish(authed ? _End.lostAfterConnect : _End.failedBeforeConnect);
+      }
+    }
+
     ws.listen(
       (data) {
-        lastRx = DateTime.now();
+        _lastRx = DateTime.now();
         final e = Envelope.tryParse(data);
         if (e == null) return;
         switch (e.type) {
@@ -281,7 +332,7 @@ class HostClient {
                 nonce,
                 host.deviceId,
               );
-              ws.add(
+              safeAdd(
                 Envelope(
                   MessageTypes.authResponse,
                   payload: {'proof': proof},
@@ -289,15 +340,16 @@ class HostClient {
               );
             }
           case MessageTypes.authOk:
+            if (gen != _generation) return finish(_End.lostAfterConnect);
             authed = true;
             issue = null;
             _setLink(LinkState.connected);
             heartbeat = Timer.periodic(const Duration(seconds: 8), (_) {
-              if (DateTime.now().difference(lastRx) >
+              if (DateTime.now().difference(_lastRx) >
                   const Duration(seconds: 25)) {
                 finish(_End.lostAfterConnect);
               } else {
-                ws.add(Envelope(MessageTypes.ping).encode());
+                safeAdd(Envelope(MessageTypes.ping).encode());
               }
             });
           case MessageTypes.deviceRevoked:
@@ -326,7 +378,8 @@ class HostClient {
       cancelOnError: true,
     );
 
-    ws.add(
+    _lastRx = DateTime.now();
+    safeAdd(
       Envelope(
         MessageTypes.authHello,
         payload: {'deviceId': host.deviceId},

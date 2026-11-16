@@ -82,6 +82,20 @@ public class ConnectionTests
         Assert.Empty(t.Host.Devices.List());
     }
 
+    /// <summary>Regression: the 15 s unauthenticated-connection timeout used to cancel the human approval step.</summary>
+    [Fact]
+    public async Task SlowHumanApprovalOutlivesTheAuthTimeout()
+    {
+        await using var t = await TestHost.StartAsync(autoApprove: false, authTimeout: TimeSpan.FromMilliseconds(300));
+        t.Host.Pairing.ApprovalRequested += p => _ = Task.Run(async () => { await Task.Delay(1000); t.Host.Pairing.Resolve(p.RequestId, true); });
+        var qr = t.Host.CreatePairing().Qr;
+        await using var c = await TestClient.ConnectAsync(t.Host.Port, qr.Fingerprint);
+        await c.SendAsync(MessageTypes.PairRequest, new PairRequestPayload(qr.Token, t.NewDeviceId(), "Slow"));
+        await c.ExpectAsync(MessageTypes.PairPending);
+        await c.ExpectAsync(MessageTypes.PairApproved, 5000);
+        Assert.Single(t.Host.Devices.List());
+    }
+
     [Fact]
     public async Task PairingWithNobodyToApproveIsRefused()
     {
@@ -233,6 +247,23 @@ public class ConnectionTests
         Assert.Equal(ErrorCodes.DeviceRevoked, TestClient.Read<ErrorPayload>(await c2.ExpectAsync(MessageTypes.Error)).Code);
         Assert.Null(t.Host.Devices.GetCredential(id));
         Assert.NotNull(cred);
+    }
+
+    /// <summary>A phone that was revoked can pair again with the same device id and then authenticates normally.</summary>
+    [Fact]
+    public async Task RevokedDeviceCanPairAgain()
+    {
+        await using var t = await TestHost.StartAsync();
+        var (c, id, oldCred) = await t.PairAsync(); await c.DisposeAsync();
+        t.Host.Devices.Revoke(id);
+
+        var qr = t.Host.CreatePairing().Qr;
+        await using var again = await TestClient.ConnectAsync(t.Host.Port, qr.Fingerprint);
+        await again.SendAsync(MessageTypes.PairRequest, new PairRequestPayload(qr.Token, id, "Same phone"));
+        var cred = System.Buffers.Text.Base64Url.DecodeFromChars(TestClient.Read<PairApprovedPayload>(await again.ExpectAsync(MessageTypes.PairApproved)).Credential);
+        Assert.NotEqual(oldCred, cred);                                   // a fresh credential; the revoked one stays dead
+        Assert.False(t.Host.Devices.List().Single().Revoked);
+        await using var login = await t.LoginAsync(id, cred);
     }
 
     [Fact]
