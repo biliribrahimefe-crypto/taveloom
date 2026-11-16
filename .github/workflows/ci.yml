@@ -50,7 +50,7 @@ jobs:
           cache: true
       - name: Generate platform folder if it is not committed
         run: |
-          if [ ! -d android ]; then flutter create --platforms=android --org dev.efedev --project-name taveloom . ; fi
+          if [ ! -d android ]; then flutter create --platforms=android --org com.tavrynt --project-name taveloom . ; fi
       - run: flutter pub get
       - name: Verify formatting
         run: dart format --output=none --set-exit-if-changed lib test

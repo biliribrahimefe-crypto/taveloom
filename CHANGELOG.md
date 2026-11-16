@@ -8,6 +8,15 @@ All notable changes are recorded here. The format follows [Keep a Changelog](htt
 Release candidate for **0.2.0-beta** (versions set to `0.2.0-beta.1` / Android `0.2.0-beta+2`). Not tagged or released yet.
 See [docs/release/RELEASE_NOTES_0.2.0-beta.md](docs/release/RELEASE_NOTES_0.2.0-beta.md).
 
+### Changed
+- **Android application ID and namespace: `dev.efedev.taveloom` -> `com.tavrynt.taveloom`** (a different app: installs side by side,
+  re-pair required; see docs/release/package-migration.md). Windows installer `AppId` and data paths are unchanged.
+- Publisher shown in the Windows app/installer is now Tavrynt Studios (a brand, not a legal entity); the EFEDEV copyright and MIT license
+  are preserved. Added `NOTICE.md`.
+- Release-signing key DN; Google Play App Signing vs direct APK guidance (docs/release/google-play-and-signing.md).
+- The keystore script passes the password to `keytool` through an environment variable (not the command line) and restricts
+  `key.properties` to the current user.
+
 ### Release engineering
 - Windows per-user installer (Inno Setup) with upgrade-in-place and optional data removal; install/upgrade/uninstall lifecycle test script.
 - Android: backups and cleartext traffic disabled, app label fixed, optional release signing, `scripts/new-android-keystore.ps1`,

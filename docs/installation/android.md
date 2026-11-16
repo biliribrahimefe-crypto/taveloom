@@ -13,6 +13,11 @@ Requirements: Android 7.0 (API 24) or newer, a camera, and the same local networ
 3. To update, install the newer APK over the old one. This works only when both APKs were signed with the **same key**
    (all official release APKs are). If Android reports a conflict, uninstall first; you will have to pair again.
 
+## Coming from an earlier test build (`dev.efedev.taveloom`)?
+
+The application ID changed to `com.tavrynt.taveloom`. The new app installs **next to** the old one and does not update it; pair the new app
+again, revoke the old phone entry on the PC, then uninstall the old app. Details: [package-migration](../release/package-migration.md).
+
 ## Pair with your PC
 
 1. On the PC start Taveloom → **Devices → Pair a phone** (the QR code is valid for 2 minutes and works once).

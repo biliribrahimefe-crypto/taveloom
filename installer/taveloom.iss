@@ -25,7 +25,7 @@
 AppId={#MyAppId}
 AppName=Taveloom
 AppVersion={#MyAppVersion}
-AppPublisher=EFEDEV
+AppPublisher=Tavrynt Studios
 AppPublisherURL=https://github.com/biliribrahimefe-crypto/taveloom
 AppSupportURL=https://github.com/biliribrahimefe-crypto/taveloom/issues
 AppUpdatesURL=https://github.com/biliribrahimefe-crypto/taveloom/releases

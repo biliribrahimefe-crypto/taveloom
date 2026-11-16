@@ -37,7 +37,7 @@ Verify the signer before publishing:
 ```powershell
 <android-sdk>\build-tools\<ver>\apksigner.bat verify --print-certs build\app\outputs\flutter-apk\app-release.apk
 ```
-The certificate DN must be `CN=Taveloom, O=EFEDEV` (or your chosen DN), **not** `Android Debug`.
+The certificate DN must be `CN=Taveloom Release, OU=Tavrynt Studios`, **not** `Android Debug`.
 Record the certificate SHA-256 in the release notes so testers can check it.
 
 ## CI

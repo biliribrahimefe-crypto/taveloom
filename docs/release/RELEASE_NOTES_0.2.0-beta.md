@@ -34,6 +34,12 @@ Install and pairing steps: [Windows](../installation/windows.md), [Android](../i
 - The audit log keeps only the newest 2000 events.
 - Privacy statement, support guide and third-party notices.
 
+## Important: new Android application ID
+
+The Android app is now `com.tavrynt.taveloom` (was `dev.efedev.taveloom` in earlier test builds). It installs **alongside** the old one and
+does not update it: pair again, revoke the old phone entry on the PC, then uninstall the old app.
+Windows installations upgrade in place and keep their data. See [package-migration](package-migration.md).
+
 ## What was tested
 
 - Automated: 117 .NET unit/integration tests; Flutter analyze/format/unit tests; real Android client code against the real Windows host;

@@ -5,7 +5,7 @@ Taveloom controls a real computer, so security reports are taken seriously. The 
 ## Reporting a vulnerability
 
 Please do **not** open a public issue. Use GitHub's private vulnerability reporting on this repository
-(Security tab, "Report a vulnerability"). If that is unavailable, contact the maintainer, EFEDEV, through the profile listed on the repository.
+(Security tab, "Report a vulnerability"). If that is unavailable, contact the maintainers (Tavrynt Studios) through the profile listed on the repository.
 
 Include what you found, how to reproduce it, and what an attacker gains. You can expect an acknowledgement within a few days;
 this is a small project, so there is no formal SLA.

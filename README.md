@@ -10,6 +10,8 @@
 
 **Your workspace, at your fingertips.**
 
+<sub>Distributed under the Tavrynt Studios brand ([NOTICE](NOTICE.md)).</sub>
+
 Taveloom turns an Android phone or tablet into a real-time control surface for a Windows 11 PC. What sets it apart from a plain
 button deck is the **Adaptive Workspace Engine**: Taveloom notices which app you are using and shows the controls that matter for it.
 
@@ -137,4 +139,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) and the [Code of Conduct](CODE_OF_CONDUCT
 
 ## License
 
-[MIT](LICENSE) © 2026 EFEDEV. Dependency licenses are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+[MIT](LICENSE) © 2026 EFEDEV (original copyright preserved; see [NOTICE.md](NOTICE.md) about the Tavrynt Studios brand). Dependency licenses are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

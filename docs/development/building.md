@@ -43,7 +43,7 @@ Prerequisites: Flutter (stable, Dart 3.7+), Android SDK with platform tools, JDK
 
 ```bash
 cd apps/android
-flutter create --platforms=android --org dev.efedev --project-name taveloom .   # once; commit the generated android/ folder
+flutter create --platforms=android --org com.tavrynt --project-name taveloom .   # once; commit the generated android/ folder
 # add CAMERA permission, set minSdkVersion 23+  (see apps/android/README.md)
 flutter pub get
 flutter analyze

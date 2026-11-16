@@ -14,13 +14,21 @@ $keytool = if ($env:JAVA_HOME) { Join-Path $env:JAVA_HOME "bin\keytool.exe" } el
 $pw = Read-Host "Keystore/key password (min 8 chars)" -AsSecureString
 $plain = [Runtime.InteropServices.Marshal]::PtrToStringBSTR([Runtime.InteropServices.Marshal]::SecureStringToBSTR($pw))
 if ($plain.Length -lt 8) { throw "Password too short." }
-& $keytool -genkeypair -v -keystore $KeystorePath -alias $Alias -keyalg RSA -keysize 4096 -validity 10000 `
-    -storepass $plain -keypass $plain -dname "CN=Taveloom, O=EFEDEV"
-if ($LASTEXITCODE) { throw "keytool failed" }
+# The password goes to keytool through an environment variable so it never appears on a command line / in the process list.
+$env:TAVELOOM_KS_PW = $plain
+try {
+    & $keytool -genkeypair -v -keystore $KeystorePath -alias $Alias -keyalg RSA -keysize 4096 -validity 10000 `
+        -storepass:env TAVELOOM_KS_PW -keypass:env TAVELOOM_KS_PW -dname "CN=Taveloom Release, OU=Tavrynt Studios"
+    if ($LASTEXITCODE) { throw "keytool failed" }
+}
+finally { Remove-Item Env:\TAVELOOM_KS_PW -ErrorAction SilentlyContinue }
 @"
 storeFile=$($KeystorePath -replace '\\','/')
 storePassword=$plain
 keyAlias=$Alias
 keyPassword=$plain
 "@ | Set-Content (Join-Path $AndroidDir "key.properties") -Encoding ascii
+$plain = $null
+# Gradle needs the passwords in key.properties; limit the file (and the keystore) to the current user.
+foreach ($f in @((Join-Path $AndroidDir "key.properties"), $KeystorePath)) { icacls $f /inheritance:r /grant:r "$($env:USERNAME):(R,W)" | Out-Null }
 "Created $KeystorePath and $AndroidDir\key.properties (git-ignored). Back up the keystore NOW."

@@ -1,4 +1,4 @@
-package dev.efedev.taveloom
+package com.tavrynt.taveloom
 
 import io.flutter.embedding.android.FlutterActivity
 
